@@ -1,0 +1,39 @@
+{
+  "name": "@aura-studio/lambda-node",
+  "version": "0.1.0",
+  "description": "Multi-mode Lambda framework for Node.js (HTTP, ReqResp, SQS, Event)",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test test/**/*.test.js"
+  },
+  "keywords": [
+    "lambda",
+    "aws",
+    "serverless",
+    "http",
+    "sqs",
+    "event"
+  ],
+  "author": "aura-studio",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "js-yaml": "^4.1.0",
+    "uuid": "^10.0.0"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-lambda": "^3.0.0",
+    "@aws-sdk/client-sqs": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-lambda": {
+      "optional": true
+    },
+    "@aws-sdk/client-sqs": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
