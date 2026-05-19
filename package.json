@@ -4,7 +4,9 @@
   "description": "Multi-mode Lambda framework for Node.js (HTTP, ReqResp, SQS, Event)",
   "main": "src/index.js",
   "scripts": {
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test test/**/*.test.js",
+    "example:http:simple": "node examples/http/simple.js",
+    "example:http:config": "node examples/http/config_file.js"
   },
   "keywords": [
     "lambda",

@@ -1,0 +1,23 @@
+lambda: http
+
+http:
+  address: ":3000"
+  mode:
+    debug: true
+    cors: true
+  staticLink:
+    - srcPath: "/greet"
+      dstPath: "/api/greeter/v1/greet"
+      methods: ["POST"]
+  prefixLink:
+    - srcPrefix: "/v2"
+      dstPrefix: "/api/greeter/v1"
+      methods: ["GET", "POST"]
+  pageNotFound:
+    - path: "/health-check"
+      methods: ["GET"]
+
+dynamic:
+  package:
+    namespace: aura
+    defaultVersion: v1
