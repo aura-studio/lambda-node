@@ -2,18 +2,6 @@
 
 const { ContextPath, ContextError } = require('./context');
 
-/**
- * Pattern matching for routes.
- * Supports exact match and wildcard *path suffix.
- *
- * Examples:
- *   "/api/*path" matches "/api/foo/bar" => param = "/foo/bar"
- *   "/health-check" matches "/health-check" => param = ""
- *
- * @param {string} pattern
- * @param {string} path
- * @returns {{ param: string, ok: boolean }}
- */
 function matchPattern(pattern, path) {
   if (pattern.includes('*path')) {
     let prefix = pattern.replace('*path', '');
@@ -32,9 +20,6 @@ function matchPattern(pattern, path) {
   return { param: '', ok: pattern === path };
 }
 
-/**
- * Prepend a handler that sets ContextPath to the matched param.
- */
 function withParam(handlers, param) {
   if (handlers.length === 0) {
     return handlers;
@@ -45,10 +30,6 @@ function withParam(handlers, param) {
   ];
 }
 
-/**
- * Router - lightweight pattern-matching router for non-HTTP modes.
- * Mirrors the Go reqresp/sqs/event Router struct.
- */
 class Router {
   constructor() {
     this._pre = [];
@@ -56,44 +37,25 @@ class Router {
     this._noRoute = [];
   }
 
-  /**
-   * Register middleware handlers that run before route matching.
-   * @param {...Function} handlers
-   */
   use(...handlers) {
     this._pre.push(...handlers);
   }
 
-  /**
-   * Register a route pattern with one or more handlers.
-   * @param {string} pattern
-   * @param {...Function} handlers
-   */
   handle(pattern, ...handlers) {
     this._routes.push({ pattern, handlers });
   }
 
-  /**
-   * Register fallback handlers when no route matches.
-   * @param {...Function} handlers
-   */
   noRoute(...handlers) {
     this._noRoute = handlers;
   }
 
-  /**
-   * Dispatch a context through middleware, route matching, and handlers.
-   * @param {import('./context').Context} ctx
-   */
   dispatch(ctx) {
-    // Run pre-middleware
     for (const h of this._pre) {
       if (!h) continue;
       h(ctx);
       if (ctx.aborted) return;
     }
 
-    // Match route
     const path = ctx.getString(ContextPath);
     let handlers = null;
     for (const rt of this._routes) {
@@ -113,7 +75,6 @@ class Router {
       return;
     }
 
-    // Run matched handlers
     for (const h of handlers) {
       if (!h) continue;
       h(ctx);

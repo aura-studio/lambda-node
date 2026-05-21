@@ -1,27 +1,29 @@
 'use strict';
 
-const {
-  ContextPath,
-  ContextHeader,
-  ContextRequest,
-  ContextResponse,
-  ContextRequestMeta,
-  ContextResponseMeta,
-  ContextError,
-  ContextPanic,
-  ContextDebug,
-  ContextStdout,
-  ContextStderr,
-  ReqMetaHost,
-  ReqMetaRemoteAddr,
-  ReqMetaPath,
-  RspMetaError,
-  RspMetaContentType,
-  RspMetaStatus,
-  HeaderOriginalPath,
-} = require('../context');
+const ContextPath = 'Path';
+const ContextHeader = 'Header';
+const ContextRequest = 'Request';
+const ContextResponse = 'Response';
+const ContextRequestMeta = 'RequestMeta';
+const ContextResponseMeta = 'ResponseMeta';
+const ContextError = 'Error';
+const ContextPanic = 'Panic';
+const ContextDebug = 'Debug';
+const ContextStdout = 'Stdout';
+const ContextStderr = 'Stderr';
+
+const ReqMetaHost = 'Host';
+const ReqMetaRemoteAddr = 'RemoteAddr';
+const ReqMetaPath = 'Path';
+
+const RspMetaError = 'Error';
+const RspMetaContentType = 'ContentType';
+const RspMetaStatus = 'Status';
+
+const HeaderOriginalPath = 'X-Original-Path';
+
 const { normalizePath, matchMethod } = require('./options');
-const { doSafe, doDebug } = require('../processor');
+const { doSafe, doDebug } = require('./processor');
 
 /**
  * Install all route handlers on the Engine.

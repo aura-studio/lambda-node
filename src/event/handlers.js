@@ -13,13 +13,9 @@ const {
   ContextStderr,
   ContextProcessor,
   RspMetaError,
-} = require('../context');
-const { doSafe, doDebug } = require('../processor');
+} = require('./context');
+const { doSafe, doDebug } = require('./processor');
 
-/**
- * Install default handlers on the engine's router.
- * Mirrors Go event/handlers.go InstallHandlers().
- */
 function installHandlers(engine) {
   const r = engine.router;
 
@@ -75,8 +71,6 @@ function metaHandlerFn(engine, c) {
 function pageNotFoundHandler(c) {
   c.set(ContextError, new Error(`404 page not found: ${c.getString(ContextPath)}`));
 }
-
-// ==================== Processors ====================
 
 function doProcessorFn(engine, c) {
   const path_ = c.getString(ContextPath);
@@ -141,8 +135,6 @@ function safeMetaProcessor(engine, c) {
   c.set(ContextPanic, err);
 }
 
-// ==================== Handle / Meta ====================
-
 function handlePath(engine, path_, req) {
   const parts = path_.replace(/^\/+|\/+$/g, '').split('/');
   if (parts.length < 2) {
@@ -167,8 +159,6 @@ function metaHandler(engine, path_) {
   }
   return engine.dynamic.metaGenerator.generate(tunnelMeta);
 }
-
-// ==================== Debug format ====================
 
 function formatDebug(c) {
   const lines = [];

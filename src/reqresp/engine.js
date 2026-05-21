@@ -1,20 +1,12 @@
 'use strict';
 
 const { newOptions } = require('./options');
-const { Router } = require('../router');
+const { Router } = require('./router');
 const { Dynamic } = require('../dynamic/dynamic');
-const { Context, ContextPath, ContextRequest, ContextResponse, ContextPanic } = require('../context');
+const { Context, ContextPath, ContextRequest, ContextResponse, ContextPanic } = require('./context');
 const { installHandlers } = require('./handlers');
 
-/**
- * Engine - ReqResp mode engine.
- * Mirrors Go reqresp.Engine (Options + Router + Dynamic).
- */
 class Engine {
-  /**
-   * @param {Function[]} reqrespOpts
-   * @param {Function[]} dynamicOpts
-   */
   constructor(reqrespOpts = [], dynamicOpts = []) {
     this.options = newOptions(...reqrespOpts);
     this.dynamic = new Dynamic(...dynamicOpts);
@@ -22,16 +14,6 @@ class Engine {
     installHandlers(this);
   }
 
-  /**
-   * Invoke processes a ReqResp request.
-   * Input: { path: string, payload: Buffer|string }
-   * Output: { payload: string, error: string }
-   *
-   * Mirrors Go reqresp.Engine.Invoke().
-   *
-   * @param {object} event - Lambda event
-   * @returns {object} response
-   */
   invoke(event) {
     const req = event || {};
     const c = new Context();

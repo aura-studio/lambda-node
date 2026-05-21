@@ -1,6 +1,6 @@
 'use strict';
 
-// Context key constants (shared across all modes)
+// Context key constants (shared across non-HTTP modes)
 const ContextPath = 'Path';
 const ContextHeader = 'Header';
 const ContextRequest = 'Request';
@@ -27,10 +27,6 @@ const RspMetaStatus = 'Status';
 // Header constants
 const HeaderOriginalPath = 'X-Original-Path';
 
-/**
- * Context - lightweight key-value context for non-HTTP modes.
- * Mirrors the Go reqresp/sqs/event Context struct.
- */
 class Context {
   constructor() {
     this._keys = {};

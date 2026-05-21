@@ -13,13 +13,9 @@ const {
   ContextStderr,
   ContextProcessor,
   RspMetaError,
-} = require('../context');
-const { doSafe, doDebug } = require('../processor');
+} = require('./context');
+const { doSafe, doDebug } = require('./processor');
 
-/**
- * Install default handlers on the engine's router.
- * Mirrors Go reqresp/handlers.go InstallHandlers().
- */
 function installHandlers(engine) {
   const r = engine.router;
 
@@ -49,7 +45,6 @@ function apiHandler(engine, c) {
     return;
   }
 
-  // Select processor
   if (c.getBool(ContextDebug)) {
     c.set(ContextProcessor, (ctx) => debugProcessor(engine, ctx));
   } else {
@@ -59,7 +54,6 @@ function apiHandler(engine, c) {
   const [procFn] = c.get(ContextProcessor);
   if (procFn) procFn(c);
 
-  // If debug mode, format debug output
   if (c.getBool(ContextDebug)) {
     c.set(ContextResponse, formatDebug(c));
   }
@@ -78,14 +72,11 @@ function pageNotFoundHandler(c) {
   c.set(ContextError, new Error(`404 page not found: ${c.getString(ContextPath)}`));
 }
 
-// ==================== Processors ====================
-
 function doProcessorFn(engine, c) {
   const path_ = c.getString(ContextPath);
   const req = c.getString(ContextRequest);
   const reqMeta = c.getStringMap(ContextRequestMeta) || {};
 
-  // Encode request envelope
   const reqEnvelope = {
     meta: reqMeta,
     data: Buffer.from(req, 'utf8').toString('base64'),
@@ -93,7 +84,6 @@ function doProcessorFn(engine, c) {
 
   const rsp = handlePath(engine, path_, JSON.stringify(reqEnvelope));
 
-  // Decode response envelope
   let rspEnvelope;
   try {
     rspEnvelope = JSON.parse(rsp);
@@ -145,8 +135,6 @@ function safeMetaProcessor(engine, c) {
   c.set(ContextPanic, err);
 }
 
-// ==================== Handle / Meta ====================
-
 function handlePath(engine, path_, req) {
   const parts = path_.replace(/^\/+|\/+$/g, '').split('/');
   if (parts.length < 2) {
@@ -171,8 +159,6 @@ function metaHandler(engine, path_) {
   }
   return engine.dynamic.metaGenerator.generate(tunnelMeta);
 }
-
-// ==================== Debug format ====================
 
 function formatDebug(c) {
   const lines = [];

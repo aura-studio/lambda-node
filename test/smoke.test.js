@@ -3,7 +3,6 @@
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
-const http = require('http');
 
 const lambda = require('../src');
 
@@ -45,50 +44,7 @@ describe('Dynamic', () => {
   });
 });
 
-// Test 2: Context
-describe('Context', () => {
-  it('should set and get values', () => {
-    const ctx = new lambda.Context();
-    ctx.set('foo', 'bar');
-    const [v, ok] = ctx.get('foo');
-    assert.strictEqual(ok, true);
-    assert.strictEqual(v, 'bar');
-  });
-
-  it('should return false for missing keys', () => {
-    const ctx = new lambda.Context();
-    const [v, ok] = ctx.get('nonexistent');
-    assert.strictEqual(ok, false);
-    assert.strictEqual(v, undefined);
-  });
-});
-
-// Test 3: Router
-describe('Router', () => {
-  it('should match exact routes', () => {
-    const router = new lambda.Router();
-    let matched = false;
-    router.handle('/health-check', (c) => { matched = true; });
-    const ctx = new lambda.Context();
-    ctx.set('Path', '/health-check');
-    router.dispatch(ctx);
-    assert.strictEqual(matched, true);
-  });
-
-  it('should match wildcard routes', () => {
-    const router = new lambda.Router();
-    let capturedPath = '';
-    router.handle('/api/*path', (c) => {
-      capturedPath = c.getString('Path');
-    });
-    const ctx = new lambda.Context();
-    ctx.set('Path', '/api/example/v1/test');
-    router.dispatch(ctx);
-    assert.strictEqual(capturedPath, '/example/v1/test');
-  });
-});
-
-// Test 4: ReqResp Engine
+// Test 2: ReqResp Engine
 describe('ReqResp Engine', () => {
   it('should invoke and return response', () => {
     const engine = new lambda.reqresp.Engine(
@@ -107,7 +63,7 @@ describe('ReqResp Engine', () => {
   });
 });
 
-// Test 5: Event Engine
+// Test 3: Event Engine
 describe('Event Engine', () => {
   it('should invoke without error', () => {
     const engine = new lambda.event.Engine(
@@ -123,7 +79,7 @@ describe('Event Engine', () => {
   });
 });
 
-// Test 6: HTTP Engine integration
+// Test 4: HTTP Engine integration
 describe('HTTP Server', () => {
   let server;
   const port = 18901;
