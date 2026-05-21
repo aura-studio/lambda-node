@@ -21,3 +21,4 @@ dynamic:
   package:
     namespace: aura
     defaultVersion: v1
+    basePath: ./examples/http/packages
