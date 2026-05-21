@@ -14,31 +14,23 @@ class Engine {
     installHandlers(this);
   }
 
-  invoke(event) {
+  async invoke(event) {
     const req = event || {};
     const c = new Context();
     c.set(ContextPath, req.path || '');
     c.set(ContextRequest, typeof req.payload === 'string' ? req.payload : String(req.payload || ''));
 
-    if (this.options.debugMode) {
-      console.log(`[Event] Request: ${c.getString(ContextPath)} ${c.getString(ContextRequest)}`);
-    }
+    if (this.options.debugMode) console.log(`[Event] Request: ${c.getString(ContextPath)} ${c.getString(ContextRequest)}`);
 
-    this.router.dispatch(c);
+    await this.router.dispatch(c);
 
-    if (this.options.debugMode) {
-      console.log(`[Event] Response: ${c.getString(ContextPath)} ${c.getString(ContextResponse)}`);
-    }
+    if (this.options.debugMode) console.log(`[Event] Response: ${c.getString(ContextPath)} ${c.getString(ContextResponse)}`);
 
     const [panicVal] = c.get(ContextPanic);
-    if (panicVal) {
-      throw panicVal instanceof Error ? panicVal : new Error(String(panicVal));
-    }
+    if (panicVal) throw panicVal instanceof Error ? panicVal : new Error(String(panicVal));
 
     const err = c.getError();
-    if (err) {
-      throw err;
-    }
+    if (err) throw err;
 
     return null;
   }

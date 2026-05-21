@@ -14,7 +14,7 @@ class Engine {
     installHandlers(this);
   }
 
-  invoke(event) {
+  async invoke(event) {
     const req = event || {};
     const c = new Context();
     c.set(ContextPath, req.path || '');
@@ -24,25 +24,20 @@ class Engine {
       console.log(`[ReqResp] Request: ${c.getString(ContextPath)} ${c.getString(ContextRequest)}`);
     }
 
-    this.router.dispatch(c);
+    await this.router.dispatch(c);
 
     if (this.options.debugMode) {
       console.log(`[ReqResp] Response: ${c.getString(ContextPath)} ${c.getString(ContextResponse)}`);
     }
 
-    const resp = {
-      payload: c.getString(ContextResponse),
-      error: '',
-    };
+    const resp = { payload: c.getString(ContextResponse), error: '' };
 
     const [panicVal] = c.get(ContextPanic);
     if (panicVal) {
       resp.error = panicVal.message || String(panicVal);
     } else {
       const err = c.getError();
-      if (err) {
-        resp.error = err.message || String(err);
-      }
+      if (err) resp.error = err.message || String(err);
     }
 
     if (resp.error && this.options.debugMode) {

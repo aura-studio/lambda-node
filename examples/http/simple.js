@@ -3,6 +3,8 @@
 const path = require('path');
 const { serve, server, http, dynamic } = require('../../src');
 
+const greeterMod = require('./packages/greeter/v1');
+
 async function main() {
   await serve(
     server.withLambdaType('http'),
@@ -12,7 +14,7 @@ async function main() {
       http.withCorsMode(),
     ),
     server.withDynamicOptions(
-      dynamic.withBasePath(path.join(__dirname, 'packages')),
+      dynamic.withStaticPackage({ package: 'greeter', version: 'v1', handler: greeterMod }),
     ),
   );
 }

@@ -1,20 +1,11 @@
 'use strict';
 
 const {
-  ContextPath,
-  ContextRequest,
-  ContextResponse,
-  ContextRequestMeta,
-  ContextResponseMeta,
-  ContextError,
-  ContextPanic,
-  ContextDebug,
-  ContextStdout,
-  ContextStderr,
-  ContextProcessor,
+  ContextPath, ContextRequest, ContextResponse, ContextRequestMeta, ContextResponseMeta,
+  ContextError, ContextPanic, ContextDebug, ContextStdout, ContextStderr,
   RspMetaError,
 } = require('./context');
-const { doSafe, doDebug } = require('./processor');
+const { doSafeAsync, doDebugAsync } = require('./processor');
 
 function installHandlers(engine) {
   const r = engine.router;
@@ -22,140 +13,80 @@ function installHandlers(engine) {
   r.handle('/', (c) => okHandler(c));
   r.handle('/health-check', (c) => okHandler(c));
   r.handle('/api/*path', (c) => apiHandler(engine, c));
-  r.handle('/_/api/*path',
-    (c) => debugMiddleware(c),
-    (c) => apiHandler(engine, c),
-  );
+  r.handle('/_/api/*path', (c) => debugMiddleware(c), (c) => apiHandler(engine, c));
   r.handle('/meta/*path', (c) => metaHandlerFn(engine, c));
   r.noRoute((c) => pageNotFoundHandler(c));
 }
 
-function okHandler(c) {
-  c.set(ContextResponse, 'OK');
-}
+function okHandler(c) { c.set(ContextResponse, 'OK'); }
+function debugMiddleware(c) { c.set(ContextDebug, true); }
+function pageNotFoundHandler(c) { c.set(ContextError, new Error(`404 page not found: ${c.getString(ContextPath)}`)); }
 
-function debugMiddleware(c) {
-  c.set(ContextDebug, true);
-}
-
-function apiHandler(engine, c) {
+async function apiHandler(engine, c) {
   const path_ = c.getString(ContextPath);
-  if (!path_) {
-    c.set(ContextError, new Error('missing api path'));
-    return;
-  }
+  if (!path_) { c.set(ContextError, new Error('missing api path')); return; }
 
   if (c.getBool(ContextDebug)) {
-    c.set(ContextProcessor, (ctx) => debugProcessor(engine, ctx));
+    const { stdout, stderr, error } = await doDebugAsync(() => doProcessorFn(engine, c));
+    c.set(ContextStdout, stdout);
+    c.set(ContextStderr, stderr);
+    c.set(ContextPanic, error);
   } else {
-    c.set(ContextProcessor, (ctx) => safeProcessor(engine, ctx));
+    const err = await doSafeAsync(() => doProcessorFn(engine, c));
+    c.set(ContextPanic, err);
   }
 
-  const [procFn] = c.get(ContextProcessor);
-  if (procFn) procFn(c);
-
-  if (c.getBool(ContextDebug)) {
-    c.set(ContextResponse, formatDebug(c));
-  }
+  if (c.getBool(ContextDebug)) { c.set(ContextResponse, formatDebug(c)); }
 }
 
-function metaHandlerFn(engine, c) {
+async function metaHandlerFn(engine, c) {
   const path_ = c.getString(ContextPath);
-  if (!path_) {
-    c.set(ContextError, new Error('missing meta path'));
-    return;
-  }
-  safeMetaProcessor(engine, c);
+  if (!path_) { c.set(ContextError, new Error('missing meta path')); return; }
+
+  const err = await doSafeAsync(() => doMetaProcessorFn(engine, c));
+  c.set(ContextPanic, err);
+
+  if (c.getBool(ContextDebug)) { c.set(ContextResponse, formatDebug(c)); }
 }
 
-function pageNotFoundHandler(c) {
-  c.set(ContextError, new Error(`404 page not found: ${c.getString(ContextPath)}`));
-}
-
-function doProcessorFn(engine, c) {
+async function doProcessorFn(engine, c) {
   const path_ = c.getString(ContextPath);
   const req = c.getString(ContextRequest);
   const reqMeta = c.getStringMap(ContextRequestMeta) || {};
 
-  const reqEnvelope = {
-    meta: reqMeta,
-    data: Buffer.from(req, 'utf8').toString('base64'),
-  };
-
-  const rsp = handlePath(engine, path_, JSON.stringify(reqEnvelope));
+  const reqEnvelope = { meta: reqMeta, data: Buffer.from(req, 'utf8').toString('base64') };
+  const rsp = await handlePath(engine, path_, JSON.stringify(reqEnvelope));
 
   let rspEnvelope;
-  try {
-    rspEnvelope = JSON.parse(rsp);
-  } catch (_) {
-    c.set(ContextResponse, rsp);
-    return;
-  }
-
-  if (rspEnvelope.meta && Object.keys(rspEnvelope.meta).length > 0) {
-    c.set(ContextResponseMeta, rspEnvelope.meta);
-  }
-
-  if (rspEnvelope.meta && rspEnvelope.meta[RspMetaError]) {
-    c.set(ContextError, new Error(String(rspEnvelope.meta[RspMetaError])));
-    return;
-  }
-
+  try { rspEnvelope = JSON.parse(rsp); } catch (_) { c.set(ContextResponse, rsp); return; }
+  if (rspEnvelope.meta && Object.keys(rspEnvelope.meta).length > 0) { c.set(ContextResponseMeta, rspEnvelope.meta); }
+  if (rspEnvelope.meta && rspEnvelope.meta[RspMetaError]) { c.set(ContextError, new Error(String(rspEnvelope.meta[RspMetaError]))); return; }
   if (rspEnvelope.data) {
-    try {
-      c.set(ContextResponse, Buffer.from(rspEnvelope.data, 'base64').toString('utf8'));
-    } catch (err) {
-      c.set(ContextError, err);
-    }
-  } else {
-    c.set(ContextResponse, '');
-  }
+    try { c.set(ContextResponse, Buffer.from(rspEnvelope.data, 'base64').toString('utf8')); } catch (err) { c.set(ContextError, err); }
+  } else { c.set(ContextResponse, ''); }
 }
 
-function safeProcessor(engine, c) {
-  const err = doSafe(() => doProcessorFn(engine, c));
-  c.set(ContextPanic, err);
-}
-
-function debugProcessor(engine, c) {
-  const result = doDebug(() => doProcessorFn(engine, c));
-  c.set(ContextStdout, result.stdout);
-  c.set(ContextStderr, result.stderr);
-  c.set(ContextPanic, result.error);
-}
-
-function doMetaProcessorFn(engine, c) {
+async function doMetaProcessorFn(engine, c) {
   const path_ = c.getString(ContextPath);
-  const rsp = metaHandler(engine, path_);
+  const rsp = await metaHandler(engine, path_);
   c.set(ContextResponse, rsp);
 }
 
-function safeMetaProcessor(engine, c) {
-  const err = doSafe(() => doMetaProcessorFn(engine, c));
-  c.set(ContextPanic, err);
-}
-
-function handlePath(engine, path_, req) {
+async function handlePath(engine, path_, req) {
   const parts = path_.replace(/^\/+|\/+$/g, '').split('/');
-  if (parts.length < 2) {
-    throw new Error(`invalid path: "${path_}"`);
-  }
-  const pkg = parts[0];
-  const version = parts[1];
-  const route = '/' + parts.slice(2).join('/');
-
-  const tunnel = engine.dynamic.getPackage(pkg, version);
-  return tunnel.invoke(route, req);
+  if (parts.length < 2) throw new Error(`invalid path: "${path_}"`);
+  const tunnel = await engine.dynamic.getPackage(parts[0], parts[1]);
+  return tunnel.invoke('/' + parts.slice(2).join('/'), req);
 }
 
-function metaHandler(engine, path_) {
+async function metaHandler(engine, path_) {
   let tunnelMeta = '';
   const parts = path_.replace(/^\/+|\/+$/g, '').split('/');
   if (parts.length >= 2) {
     try {
-      const tunnel = engine.dynamic.getPackage(parts[0], parts[1]);
+      const tunnel = await engine.dynamic.getPackage(parts[0], parts[1]);
       tunnelMeta = tunnel.meta();
-    } catch (_) { /* not found */ }
+    } catch (_) {}
   }
   return engine.dynamic.metaGenerator.generate(tunnelMeta);
 }

@@ -6,15 +6,16 @@ const path = require('path');
 
 const lambda = require('../src');
 
+const exampleMod = require('./packages/example/v1');
+
 // Test 1: Dynamic package loading
 describe('Dynamic', () => {
-  it('should load a local package and invoke it', () => {
+  it('should load a registered package and invoke it', async () => {
     const dyn = new lambda.dynamic.Dynamic(
-      lambda.dynamic.withBasePath(path.join(__dirname, 'packages')),
-      lambda.dynamic.withPackageDefaultVersion('v1'),
+      lambda.dynamic.withStaticPackage({ package: 'example', version: 'v1', handler: exampleMod }),
     );
 
-    const tunnel = dyn.getPackage('example', 'v1');
+    const tunnel = await dyn.getPackage('example', 'v1');
     assert.ok(tunnel, 'tunnel should not be null');
 
     const reqEnvelope = JSON.stringify({
@@ -31,12 +32,12 @@ describe('Dynamic', () => {
     assert.strictEqual(body.echo, 'hello world');
   });
 
-  it('should return meta from the package', () => {
+  it('should return meta from the package', async () => {
     const dyn = new lambda.dynamic.Dynamic(
-      lambda.dynamic.withBasePath(path.join(__dirname, 'packages')),
+      lambda.dynamic.withStaticPackage({ package: 'example', version: 'v1', handler: exampleMod }),
     );
 
-    const tunnel = dyn.getPackage('example', 'v1');
+    const tunnel = await dyn.getPackage('example', 'v1');
     const metaStr = tunnel.meta();
     const metaObj = JSON.parse(metaStr);
     assert.strictEqual(metaObj.name, 'example');
@@ -46,13 +47,13 @@ describe('Dynamic', () => {
 
 // Test 2: ReqResp Engine
 describe('ReqResp Engine', () => {
-  it('should invoke and return response', () => {
+  it('should invoke and return response', async () => {
     const engine = new lambda.reqresp.Engine(
       [],
-      [lambda.dynamic.withBasePath(path.join(__dirname, 'packages'))],
+      [lambda.dynamic.withStaticPackage({ package: 'example', version: 'v1', handler: exampleMod })],
     );
 
-    const resp = engine.invoke({
+    const resp = await engine.invoke({
       path: '/api/example/v1/test',
       payload: JSON.stringify({ message: 'hello' }),
     });
@@ -65,14 +66,13 @@ describe('ReqResp Engine', () => {
 
 // Test 3: Event Engine
 describe('Event Engine', () => {
-  it('should invoke without error', () => {
+  it('should invoke without error', async () => {
     const engine = new lambda.event.Engine(
       [],
-      [lambda.dynamic.withBasePath(path.join(__dirname, 'packages'))],
+      [lambda.dynamic.withStaticPackage({ package: 'example', version: 'v1', handler: exampleMod })],
     );
 
-    // Should not throw
-    engine.invoke({
+    await engine.invoke({
       path: '/api/example/v1/test',
       payload: JSON.stringify({ message: 'hello' }),
     });
@@ -87,7 +87,7 @@ describe('HTTP Server', () => {
   before(async () => {
     const engine = new lambda.http.Engine(
       [lambda.http.withAddress(`:${port}`)],
-      [lambda.dynamic.withBasePath(path.join(__dirname, 'packages'))],
+      [lambda.dynamic.withStaticPackage({ package: 'example', version: 'v1', handler: exampleMod })],
     );
     server = engine.app.listen(port);
   });

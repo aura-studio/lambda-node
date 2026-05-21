@@ -5,29 +5,18 @@ const { ContextPath, ContextError } = require('./context');
 function matchPattern(pattern, path) {
   if (pattern.includes('*path')) {
     let prefix = pattern.replace('*path', '');
-    if (!prefix.endsWith('/')) {
-      prefix += '/';
-    }
-    if (!path.startsWith(prefix)) {
-      return { param: '', ok: false };
-    }
+    if (!prefix.endsWith('/')) prefix += '/';
+    if (!path.startsWith(prefix)) return { param: '', ok: false };
     const rest = path.slice(prefix.length);
-    if (rest === '') {
-      return { param: '/', ok: true };
-    }
+    if (rest === '') return { param: '/', ok: true };
     return { param: '/' + rest, ok: true };
   }
   return { param: '', ok: pattern === path };
 }
 
 function withParam(handlers, param) {
-  if (handlers.length === 0) {
-    return handlers;
-  }
-  return [
-    (c) => { c.set(ContextPath, param); },
-    ...handlers,
-  ];
+  if (handlers.length === 0) return handlers;
+  return [(c) => { c.set(ContextPath, param); }, ...handlers];
 }
 
 class Router {
@@ -37,22 +26,18 @@ class Router {
     this._noRoute = [];
   }
 
-  use(...handlers) {
-    this._pre.push(...handlers);
-  }
+  use(...handlers) { this._pre.push(...handlers); }
 
   handle(pattern, ...handlers) {
     this._routes.push({ pattern, handlers });
   }
 
-  noRoute(...handlers) {
-    this._noRoute = handlers;
-  }
+  noRoute(...handlers) { this._noRoute = handlers; }
 
-  dispatch(ctx) {
+  async dispatch(ctx) {
     for (const h of this._pre) {
       if (!h) continue;
-      h(ctx);
+      await h(ctx);
       if (ctx.aborted) return;
     }
 
@@ -60,15 +45,10 @@ class Router {
     let handlers = null;
     for (const rt of this._routes) {
       const { param, ok } = matchPattern(rt.pattern, path);
-      if (ok) {
-        handlers = withParam(rt.handlers, param);
-        break;
-      }
+      if (ok) { handlers = withParam(rt.handlers, param); break; }
     }
 
-    if (!handlers) {
-      handlers = this._noRoute;
-    }
+    if (!handlers) handlers = this._noRoute;
 
     if (!handlers || handlers.length === 0) {
       ctx.set(ContextError, new Error(`no route for path: "${path}"`));
@@ -77,14 +57,11 @@ class Router {
 
     for (const h of handlers) {
       if (!h) continue;
-      h(ctx);
+      await h(ctx);
       if (ctx.aborted) return;
       if (ctx.getError()) return;
     }
   }
 }
 
-module.exports = {
-  Router,
-  matchPattern,
-};
+module.exports = { Router, matchPattern };
