@@ -33,4 +33,32 @@ async function serve(...opts) {
   }
 }
 
-module.exports = { serve };
+/**
+ * Start - unified entry point for executable bootstraps.
+ *
+ * HTTP mode starts the HTTP server. Lambda modes start a Runtime API loop,
+ * matching Go's lambda.Start-based entrypoint behavior.
+ *
+ * @param {...Function} opts - server option functions
+ * @returns {Promise<void>}
+ */
+async function start(...opts) {
+  const options = newOptions(...opts);
+
+  switch (options.lambda) {
+    case 'event':
+      return event.start(options.event, options.dynamic);
+
+    case 'sqs':
+      return sqs.start(options.sqs, options.dynamic);
+
+    case 'reqresp':
+      return reqresp.start(options.reqresp, options.dynamic);
+
+    case 'http':
+    default:
+      return http.serve(options.http, options.dynamic);
+  }
+}
+
+module.exports = { serve, start };

@@ -1,6 +1,7 @@
 'use strict';
 
 const { v4: uuidv4 } = require('uuid');
+const { encodePayload, decodePayload } = require('../protocol/payload');
 
 /**
  * SQS Client - sends messages to SQS and optionally waits for replies.
@@ -57,11 +58,11 @@ class SqsClient {
 
     const correlationId = uuidv4();
     const request = {
-      requestSqsId: this.requestSqsId,
-      responseSqsId: this.responseSqsId,
-      correlationId,
+      request_sqs_id: this.requestSqsId,
+      response_sqs_id: this.responseSqsId,
+      correlation_id: correlationId,
       path,
-      payload: typeof payload === 'string' ? payload : payload.toString(),
+      payload: encodePayload(payload),
     };
 
     // Create pending response channel
@@ -96,7 +97,7 @@ class SqsClient {
 
     const request = {
       path,
-      payload: typeof payload === 'string' ? payload : payload.toString(),
+      payload: encodePayload(payload),
     };
 
     const { SendMessageCommand } = require('@aws-sdk/client-sqs');
@@ -172,12 +173,18 @@ class SqsClient {
       return;
     }
 
-    const correlationId = resp.correlationId;
+    const correlationId = resp.correlation_id || resp.correlationId;
     const pending = this._pendingRequests.get(correlationId);
     if (pending) {
       clearTimeout(pending.timer);
       this._pendingRequests.delete(correlationId);
-      pending.resolve(resp);
+      pending.resolve({
+        requestSqsId: resp.request_sqs_id || resp.requestSqsId || '',
+        responseSqsId: resp.response_sqs_id || resp.responseSqsId || '',
+        correlationId,
+        payload: decodePayload(resp.payload),
+        error: resp.error || '',
+      });
     }
   }
 }

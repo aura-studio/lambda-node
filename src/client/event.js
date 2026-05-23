@@ -1,5 +1,17 @@
 'use strict';
 
+const { encodePayload } = require('../protocol/payload');
+const { runWithTimeout } = require('./timeout');
+
+function createInvokeCommand(input) {
+  try {
+    const { InvokeCommand } = require('@aws-sdk/client-lambda');
+    return new InvokeCommand(input);
+  } catch (_) {
+    return { input, commandName: 'InvokeCommand' };
+  }
+}
+
 /**
  * Event Client - invokes Lambda with Event type (fire-and-forget).
  * Mirrors Go event/client/client.go.
@@ -31,16 +43,19 @@ class EventClient {
 
     const request = {
       path,
-      payload: typeof payload === 'string' ? payload : payload.toString(),
+      payload: encodePayload(payload),
     };
 
-    const { InvokeCommand } = require('@aws-sdk/client-lambda');
-
-    const output = await this.lambdaClient.send(new InvokeCommand({
+    const command = createInvokeCommand({
       FunctionName: this.functionName,
       InvocationType: 'Event',
       Payload: Buffer.from(JSON.stringify(request)),
-    }));
+    });
+
+    const output = await runWithTimeout(
+      (abortSignal) => this.lambdaClient.send(command, { abortSignal }),
+      this.timeout
+    );
 
     if (output.FunctionError) {
       const errorPayload = output.Payload ? Buffer.from(output.Payload).toString() : '';

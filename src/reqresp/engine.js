@@ -5,6 +5,7 @@ const { Router } = require('./router');
 const { Dynamic } = require('../dynamic/dynamic');
 const { Context, ContextPath, ContextRequest, ContextResponse, ContextPanic } = require('./context');
 const { installHandlers } = require('./handlers');
+const { encodePayload, decodePayload } = require('../protocol/payload');
 
 class Engine {
   constructor(reqrespOpts = [], dynamicOpts = []) {
@@ -18,7 +19,7 @@ class Engine {
     const req = event || {};
     const c = new Context();
     c.set(ContextPath, req.path || '');
-    c.set(ContextRequest, typeof req.payload === 'string' ? req.payload : String(req.payload || ''));
+    c.set(ContextRequest, decodePayload(req.payload));
 
     if (this.options.debugMode) {
       console.log(`[ReqResp] Request: ${c.getString(ContextPath)} ${c.getString(ContextRequest)}`);
@@ -30,7 +31,7 @@ class Engine {
       console.log(`[ReqResp] Response: ${c.getString(ContextPath)} ${c.getString(ContextResponse)}`);
     }
 
-    const resp = { payload: c.getString(ContextResponse), error: '' };
+    const resp = { payload: encodePayload(c.getString(ContextResponse)), error: '' };
 
     const [panicVal] = c.get(ContextPanic);
     if (panicVal) {

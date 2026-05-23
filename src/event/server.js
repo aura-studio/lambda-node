@@ -1,29 +1,38 @@
 'use strict';
 
 const { Engine } = require('./engine');
+const runtime = require('../runtime');
 
 let engine = null;
 
 /**
- * Serve starts the Event Lambda handler.
- * Returns the handler function for AWS Lambda runtime.
- *
- * Mirrors Go event.Serve().
+ * Create the Event Lambda handler.
  *
  * @param {Function[]} eventOpts
  * @param {Function[]} dynamicOpts
  * @returns {Function} Lambda handler function
  */
-function serve(eventOpts = [], dynamicOpts = []) {
+function createHandler(eventOpts = [], dynamicOpts = []) {
   engine = new Engine(eventOpts, dynamicOpts);
 
   return async (event, context) => {
-    engine.invoke(event);
+    return engine.invoke(event);
   };
+}
+
+function serve(eventOpts = [], dynamicOpts = []) {
+  return createHandler(eventOpts, dynamicOpts);
+}
+
+async function start(eventOpts = [], dynamicOpts = []) {
+  if (!runtime.isRuntimeAvailable()) {
+    throw new Error('AWS_LAMBDA_RUNTIME_API is not set; cannot start Lambda runtime');
+  }
+  return runtime.start(createHandler(eventOpts, dynamicOpts));
 }
 
 function close() {
   engine = null;
 }
 
-module.exports = { serve, close, Engine };
+module.exports = { serve, start, createHandler, close, Engine };

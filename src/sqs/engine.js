@@ -5,6 +5,25 @@ const { Router } = require('./router');
 const { Dynamic } = require('../dynamic/dynamic');
 const { Context, ContextPath, ContextRequest, ContextResponse, ContextPanic } = require('./context');
 const { installHandlers } = require('./handlers');
+const { encodePayload, decodePayload } = require('../protocol/payload');
+
+function requestSqsId(request) {
+  return request.request_sqs_id || request.requestSqsId || '';
+}
+
+function responseSqsId(request) {
+  return request.response_sqs_id || request.responseSqsId || '';
+}
+
+function correlationId(request) {
+  return request.correlation_id || request.correlationId || '';
+}
+
+function failRest(records, startIndex, batchItemFailures) {
+  for (let j = startIndex; j < records.length; j++) {
+    batchItemFailures.push({ itemIdentifier: records[j].messageId });
+  }
+}
 
 class Engine {
   constructor(sqsOpts = [], dynamicOpts = []) {
@@ -12,7 +31,19 @@ class Engine {
     this.dynamic = new Dynamic(...dynamicOpts);
     this.router = new Router();
     this.sqsClient = this.options.sqsClient || null;
+    if (!this.sqsClient && this.options.replyMode) {
+      this.sqsClient = this._createDefaultSQSClient();
+    }
     installHandlers(this);
+  }
+
+  _createDefaultSQSClient() {
+    try {
+      const { SQSClient } = require('@aws-sdk/client-sqs');
+      return new SQSClient({});
+    } catch (_) {
+      return null;
+    }
   }
 
   async invoke(event) {
@@ -37,7 +68,7 @@ class Engine {
       try { request = JSON.parse(msg.body); } catch (unmarshalErr) {
         console.error(`[SQS] Unmarshal message ${msg.messageId} body error: ${unmarshalErr.message}`);
         if (runMode === RunModeStrict) {
-          for (let j = i; j < records.length; j++) batchItemFailures.push({ itemIdentifier: records[j].messageId });
+          failRest(records, i, batchItemFailures);
           return { batchItemFailures };
         }
         batchItemFailures.push({ itemIdentifier: msg.messageId });
@@ -48,14 +79,22 @@ class Engine {
       if (result.error) {
         console.error(`[SQS] Dispatch message ${msg.messageId} error: ${result.error.message}`);
         if (runMode === RunModeStrict) {
-          for (let j = i; j < records.length; j++) batchItemFailures.push({ itemIdentifier: records[j].messageId });
+          failRest(records, i, batchItemFailures);
           return { batchItemFailures };
         }
         batchItemFailures.push({ itemIdentifier: msg.messageId });
         continue;
       }
 
-      await this._sendReply(request, result.response, msg.messageId, batchItemFailures);
+      const replyErr = await this._sendReply(request, result.response, msg.messageId);
+      if (replyErr) {
+        console.error(`[SQS] Send response for message ${msg.messageId} error: ${replyErr.message}`);
+        if (runMode === RunModeStrict) {
+          failRest(records, i, batchItemFailures);
+          return { batchItemFailures };
+        }
+        batchItemFailures.push({ itemIdentifier: msg.messageId });
+      }
     }
 
     return { batchItemFailures };
@@ -88,7 +127,13 @@ class Engine {
         continue;
       }
 
-      await this._sendReply(request, result.response, msg.messageId, batchItemFailures);
+      const replyErr = await this._sendReply(request, result.response, msg.messageId);
+      if (replyErr) {
+        console.error(`[SQS] Send response for message ${msg.messageId} error: ${replyErr.message}`);
+        if (runMode === RunModeBatch) throw replyErr;
+        batchItemFailures.push({ itemIdentifier: msg.messageId });
+        lastError = replyErr;
+      }
     }
 
     if (lastError) throw lastError;
@@ -98,7 +143,7 @@ class Engine {
   async _dispatchMessage(request, messageId) {
     const c = new Context();
     c.set(ContextPath, request.path || '');
-    c.set(ContextRequest, typeof request.payload === 'string' ? request.payload : String(request.payload || ''));
+    c.set(ContextRequest, decodePayload(request.payload));
 
     if (this.options.debugMode) console.log(`[SQS] Request: ${c.getString(ContextPath)} ${c.getString(ContextRequest)}`);
 
@@ -114,25 +159,53 @@ class Engine {
     return { response: c.getString(ContextResponse), error };
   }
 
-  async _sendReply(request, response, messageId, batchItemFailures) {
-    if (!request.responseSqsId || !request.requestSqsId) return;
-    if (!this.options.replyMode) return;
-    if (!this.sqsClient) return;
+  async _sendReply(request, response, messageId) {
+    const replyQueue = responseSqsId(request);
+    if (!replyQueue) return null;
+
+    const requestQueue = requestSqsId(request);
+    if (!requestQueue) {
+      return new Error(`RequestSqsId is empty for message ${messageId}`);
+    }
+
+    if (!this.options.replyMode) return null;
+    if (!this.sqsClient) {
+      return new Error('sqs reply mode requires an sqsClient or @aws-sdk/client-sqs');
+    }
 
     const rsp = {
-      requestSqsId: request.requestSqsId,
-      responseSqsId: request.responseSqsId,
-      correlationId: request.correlationId || '',
-      payload: response,
+      request_sqs_id: requestQueue,
+      response_sqs_id: replyQueue,
+      correlation_id: correlationId(request),
+      payload: encodePayload(response),
       error: '',
     };
 
     try {
-      await this.sqsClient.sendMessage({ MessageBody: JSON.stringify(rsp), QueueUrl: request.responseSqsId });
+      await this._sendMessage({ MessageBody: JSON.stringify(rsp), QueueUrl: replyQueue });
+      return null;
     } catch (sendErr) {
-      console.error(`[SQS] Send response for message ${messageId} error: ${sendErr.message}`);
-      batchItemFailures.push({ itemIdentifier: messageId });
+      return sendErr instanceof Error ? sendErr : new Error(String(sendErr));
     }
+  }
+
+  async _sendMessage(params) {
+    if (this.sqsClient && typeof this.sqsClient.sendMessage === 'function') {
+      return this.sqsClient.sendMessage(params);
+    }
+
+    if (this.sqsClient && typeof this.sqsClient.send === 'function') {
+      let command;
+      try {
+        const { SendMessageCommand } = require('@aws-sdk/client-sqs');
+        command = new SendMessageCommand(params);
+      } catch (_) {
+        command = { input: params, commandName: 'SendMessageCommand' };
+      }
+      return this.sqsClient.send(command);
+    }
+
+    throw new Error('sqs client must implement sendMessage(params) or send(command)');
   }
 }
 

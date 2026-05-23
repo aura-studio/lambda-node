@@ -1,5 +1,17 @@
 'use strict';
 
+const { encodePayload, decodePayload } = require('../protocol/payload');
+const { runWithTimeout } = require('./timeout');
+
+function createInvokeCommand(input) {
+  try {
+    const { InvokeCommand } = require('@aws-sdk/client-lambda');
+    return new InvokeCommand(input);
+  } catch (_) {
+    return { input, commandName: 'InvokeCommand' };
+  }
+}
+
 /**
  * ReqResp Client - invokes Lambda with RequestResponse type.
  * Mirrors Go reqresp/client/client.go.
@@ -32,16 +44,19 @@ class ReqRespClient {
 
     const request = {
       path,
-      payload: typeof payload === 'string' ? payload : payload.toString(),
+      payload: encodePayload(payload),
     };
 
-    const { InvokeCommand } = require('@aws-sdk/client-lambda');
-
-    const output = await this.lambdaClient.send(new InvokeCommand({
+    const command = createInvokeCommand({
       FunctionName: this.functionName,
       InvocationType: 'RequestResponse',
       Payload: Buffer.from(JSON.stringify(request)),
-    }));
+    });
+
+    const output = await runWithTimeout(
+      (abortSignal) => this.lambdaClient.send(command, { abortSignal }),
+      this.timeout
+    );
 
     if (output.FunctionError) {
       const errorPayload = output.Payload ? Buffer.from(output.Payload).toString() : '';
@@ -52,7 +67,11 @@ class ReqRespClient {
     }
 
     const responseStr = output.Payload ? Buffer.from(output.Payload).toString() : '{}';
-    return JSON.parse(responseStr);
+    const response = JSON.parse(responseStr);
+    return {
+      payload: decodePayload(response.payload),
+      error: response.error || '',
+    };
   }
 
   /**

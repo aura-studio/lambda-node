@@ -1,20 +1,18 @@
 'use strict';
 
 const { Engine } = require('./engine');
+const runtime = require('../runtime');
 
 let engine = null;
 
 /**
- * Serve starts the SQS Lambda handler.
- * Returns the handler function for AWS Lambda runtime.
- *
- * Mirrors Go sqs.Serve().
+ * Create the SQS Lambda handler.
  *
  * @param {Function[]} sqsOpts
  * @param {Function[]} dynamicOpts
  * @returns {Function} Lambda handler function
  */
-function serve(sqsOpts = [], dynamicOpts = []) {
+function createHandler(sqsOpts = [], dynamicOpts = []) {
   engine = new Engine(sqsOpts, dynamicOpts);
 
   return async (event, context) => {
@@ -22,8 +20,19 @@ function serve(sqsOpts = [], dynamicOpts = []) {
   };
 }
 
+function serve(sqsOpts = [], dynamicOpts = []) {
+  return createHandler(sqsOpts, dynamicOpts);
+}
+
+async function start(sqsOpts = [], dynamicOpts = []) {
+  if (!runtime.isRuntimeAvailable()) {
+    throw new Error('AWS_LAMBDA_RUNTIME_API is not set; cannot start Lambda runtime');
+  }
+  return runtime.start(createHandler(sqsOpts, dynamicOpts));
+}
+
 function close() {
   engine = null;
 }
 
-module.exports = { serve, close, Engine };
+module.exports = { serve, start, createHandler, close, Engine };
