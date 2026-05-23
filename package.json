@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node start.js",
     "test": "node --test test/**/*.test.js",
+    "example:http:api": "node examples/http/api.js",
+    "example:http:wapi": "node examples/http/wapi.js",
     "example:http:simple": "node examples/http/simple.js",
     "example:http:config": "node examples/http/config_file.js"
   },

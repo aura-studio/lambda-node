@@ -11,7 +11,10 @@ function handler(req, res) {
   }
 
   const name = input.name || 'World';
-  const response = { greeting: `Hello, ${name}!` };
+  const response = {
+    greeting: `Hello, ${name}!`,
+    route: req.meta.Path || req.meta.route || '',
+  };
 
   res.data = Buffer.from(JSON.stringify(response)).toString('base64');
   res.meta = {};
