@@ -25,27 +25,28 @@ const HeaderOriginalPath = 'X-Original-Path';
 const { normalizePath, matchMethod } = require('./options');
 const { doSafeAsync, doDebugAsync } = require('./processor');
 
-function installHandlers(engine) {
+function installRewriteHandlers(engine) {
   const app = engine.app;
   const opts = engine.options;
 
   app.use((req, res, next) => {
-    req.url = normalizePath(req.url);
+    req.url = normalizeURL(req.url);
 
-    if (opts.staticLinkMap[req.url]) {
-      const rule = opts.staticLinkMap[req.url];
+    const { pathname, search } = splitURL(req.url);
+    if (opts.staticLinkMap[pathname]) {
+      const rule = opts.staticLinkMap[pathname];
       if (matchMethod(rule, req.method)) {
         req.headers[HeaderOriginalPath.toLowerCase()] = req.url;
-        req.url = rule.dst;
+        req.url = rule.dst + search;
         app.handle(req, res);
         return;
       }
     }
 
     for (const [oldPrefix, rule] of Object.entries(opts.prefixLinkMap)) {
-      if (req.url.startsWith(oldPrefix) && matchMethod(rule, req.method)) {
+      if (pathname.startsWith(oldPrefix) && matchMethod(rule, req.method)) {
         req.headers[HeaderOriginalPath.toLowerCase()] = req.url;
-        req.url = req.url.replace(oldPrefix, rule.dst);
+        req.url = pathname.replace(oldPrefix, rule.dst) + search;
         app.handle(req, res);
         return;
       }
@@ -53,17 +54,44 @@ function installHandlers(engine) {
 
     next();
   });
+}
+
+function installRawHandlers(engine) {
+  const app = engine.app;
+
+  app.all(/^\/wapi(?:\/(.*))?$/, async (req, res) => {
+    await handleWAPI(engine, req, res, false, req.params[0] || '');
+  });
+  app.all(/^\/_\/wapi(?:\/(.*))?$/, async (req, res) => {
+    await handleWAPI(engine, req, res, true, req.params[0] || '');
+  });
+}
+
+function installHandlers(engine) {
+  const app = engine.app;
 
   app.all('/', (req, res) => { res.status(200).send('OK'); });
   app.all('/health-check', (req, res) => { res.status(200).send('OK'); });
 
   app.all('/api/*', async (req, res) => { await handleAPI(engine, req, res, false); });
   app.all('/_/api/*', async (req, res) => { await handleAPI(engine, req, res, true); });
-  app.all('/wapi/*', async (req, res) => { await handleWAPI(engine, req, res, false); });
-  app.all('/_/wapi/*', async (req, res) => { await handleWAPI(engine, req, res, true); });
   app.all('/meta/*', async (req, res) => { await handleMeta(engine, req, res); });
 
   app.use((req, res) => { handlePageNotFound(engine, req, res); });
+}
+
+function splitURL(url) {
+  const idx = url.indexOf('?');
+  if (idx < 0) return { pathname: normalizePath(url), search: '' };
+  return {
+    pathname: normalizePath(url.slice(0, idx)),
+    search: url.slice(idx),
+  };
+}
+
+function normalizeURL(url) {
+  const { pathname, search } = splitURL(url || '/');
+  return pathname + search;
 }
 
 async function handleAPI(engine, req, res, debug) {
@@ -117,41 +145,52 @@ async function handleAPI(engine, req, res, debug) {
   res.status(statusCode).type(contentType).send(ctx[ContextResponse]);
 }
 
-async function handleWAPI(engine, req, res, debug) {
-  const apiPath = '/' + (req.params[0] || '');
-
-  const ctx = {
-    [ContextPath]: apiPath,
-    [ContextHeader]: req.headers,
-    [ContextRequest]: '',
-    [ContextResponse]: '',
-    [ContextError]: null,
-    [ContextPanic]: null,
-    [ContextDebug]: debug,
-    [ContextStdout]: '',
-    [ContextStderr]: '',
-  };
-
-  const processFn = () => {
-    const reqBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
-    ctx[ContextRequest] = reqBody;
-    return handlePath(engine, apiPath, reqBody).then((rsp) => { ctx[ContextResponse] = rsp; });
-  };
-
-  if (debug) {
-    const { stdout, stderr, error } = await doDebugAsync(processFn);
-    ctx[ContextStdout] = stdout;
-    ctx[ContextStderr] = stderr;
-    ctx[ContextPanic] = error;
-  } else {
-    ctx[ContextPanic] = await doSafeAsync(processFn);
+async function handleWAPI(engine, req, res, debug, rawPath) {
+  const parts = rawPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+  if (parts.length < 2) {
+    res.status(404).send('Not Found');
+    return;
   }
 
-  if (debug) { res.status(200).type('text/plain').send(formatDebug(req, ctx)); return; }
-  if (ctx[ContextPanic]) { console.error(ctx[ContextPanic].message || ctx[ContextPanic]); res.status(500).send('Internal Server Error'); return; }
-  if (ctx[ContextError]) { console.error(ctx[ContextError].message || ctx[ContextError]); res.status(500).send('Internal Server Error'); return; }
+  const pkg = parts[0];
+  const version = parts[1];
+  const innerPath = '/' + parts.slice(2).join('/');
+  const search = splitURL(req.url).search;
+  const innerURL = normalizeURL(innerPath + search);
 
-  res.status(200).type('application/json').send(ctx[ContextResponse]);
+  let handler;
+  try {
+    handler = await engine.dynamic.getHTTPHandler(pkg, version);
+  } catch (err) {
+    console.error(err.message || err);
+    res.status(500).send('Internal Server Error');
+    return;
+  }
+
+  delete req.headers[HeaderOriginalPath.toLowerCase()];
+  req.url = innerURL;
+  req.originalUrl = innerURL;
+  req.baseUrl = '';
+  req.params = {};
+
+  if (debug) {
+    req.headers['x-lambda-node-debug'] = 'true';
+  }
+
+  const next = (err) => {
+    if (!err) return;
+    console.error(err.message || err);
+    if (!res.headersSent) res.status(500).send('Internal Server Error');
+  };
+
+  try {
+    const result = handler(req, res, next);
+    if (result && typeof result.then === 'function') {
+      await result;
+    }
+  } catch (err) {
+    next(err);
+  }
 }
 
 async function handleMeta(engine, req, res) {
@@ -204,7 +243,7 @@ async function handlePath(engine, path_, req) {
   const parts = path_.replace(/^\/+|\/+$/g, '').split('/');
   if (parts.length < 2) throw new Error(`invalid path: "${path_}"`);
   const tunnel = await engine.dynamic.getPackage(parts[0], parts[1]);
-  return tunnel.invoke('/' + parts.slice(2).join('/'), req);
+  return await tunnel.invoke('/' + parts.slice(2).join('/'), req);
 }
 
 async function metaHandler(engine, path_) {
@@ -213,7 +252,7 @@ async function metaHandler(engine, path_) {
   if (parts.length >= 2) {
     try {
       const tunnel = await engine.dynamic.getPackage(parts[0], parts[1]);
-      tunnelMeta = tunnel.meta();
+      tunnelMeta = await tunnel.meta();
     } catch (_) {}
   }
   return engine.dynamic.metaGenerator.generate(tunnelMeta);
@@ -254,4 +293,4 @@ function formatDebug(req, ctx) {
   return lines.join('\n') + '\n';
 }
 
-module.exports = { installHandlers };
+module.exports = { installRewriteHandlers, installRawHandlers, installHandlers };

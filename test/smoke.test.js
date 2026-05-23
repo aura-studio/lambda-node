@@ -9,6 +9,19 @@ const lambda = require('../src');
 const { encodePayload, decodePayload } = require('../src/protocol/payload');
 
 const exampleMod = require('./packages/example/v1');
+const nativeMod = (req, res) => {
+  const chunks = [];
+  req.on('data', (chunk) => chunks.push(chunk));
+  req.on('end', () => {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({
+      url: req.url,
+      originalUrl: req.originalUrl,
+      body: Buffer.concat(chunks).toString('utf8'),
+      hasExternalPath: Boolean(req.headers['x-original-path']),
+    }));
+  });
+};
 
 // Test 1: Dynamic package loading
 describe('Dynamic', () => {
@@ -25,7 +38,7 @@ describe('Dynamic', () => {
       data: Buffer.from('hello world').toString('base64'),
     });
 
-    const rsp = tunnel.invoke('/test', reqEnvelope);
+    const rsp = await tunnel.invoke('/test', reqEnvelope);
     const parsed = JSON.parse(rsp);
     assert.ok(parsed.data, 'response should have data');
 
@@ -40,7 +53,7 @@ describe('Dynamic', () => {
     );
 
     const tunnel = await dyn.getPackage('example', 'v1');
-    const metaStr = tunnel.meta();
+    const metaStr = await tunnel.meta();
     const metaObj = JSON.parse(metaStr);
     assert.strictEqual(metaObj.name, 'example');
     assert.strictEqual(metaObj.version, 'v1');
@@ -398,8 +411,14 @@ describe('HTTP Server', () => {
 
   before(async () => {
     const engine = new lambda.http.Engine(
-      [lambda.http.withAddress(`:${port}`)],
-      [lambda.dynamic.withStaticPackage({ package: 'example', version: 'v1', handler: exampleMod })],
+      [
+        lambda.http.withAddress(`:${port}`),
+        lambda.http.withPrefixLink('/native-prefix', '/wapi/native/v1'),
+      ],
+      [
+        lambda.dynamic.withStaticPackage({ package: 'example', version: 'v1', handler: exampleMod }),
+        lambda.dynamic.withStaticPackage({ package: 'native', version: 'v1', handler: nativeMod }),
+      ],
     );
     server = engine.app.listen(port);
   });
@@ -424,6 +443,35 @@ describe('HTTP Server', () => {
     assert.strictEqual(resp.status, 200);
     const body = await resp.text();
     assert.ok(body.length > 0, 'body should not be empty');
+    assert.strictEqual(JSON.parse(body).route, '/test');
+  });
+
+  it('should route WAPI requests to a native HTTP handler', async () => {
+    const resp = await fetch(`http://127.0.0.1:${port}/wapi/native/v1/a/b/c?x=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: 'raw-body',
+    });
+    assert.strictEqual(resp.status, 200);
+    const body = await resp.json();
+    assert.strictEqual(body.url, '/a/b/c?x=1');
+    assert.strictEqual(body.originalUrl, '/a/b/c?x=1');
+    assert.strictEqual(body.body, 'raw-body');
+    assert.strictEqual(body.hasExternalPath, false);
+  });
+
+  it('should keep only the mapped WAPI path visible after prefix rewrite', async () => {
+    const resp = await fetch(`http://127.0.0.1:${port}/native-prefix/d/e/f?x=2`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: 'mapped-body',
+    });
+    assert.strictEqual(resp.status, 200);
+    const body = await resp.json();
+    assert.strictEqual(body.url, '/d/e/f?x=2');
+    assert.strictEqual(body.originalUrl, '/d/e/f?x=2');
+    assert.strictEqual(body.body, 'mapped-body');
+    assert.strictEqual(body.hasExternalPath, false);
   });
 
   it('should return 404 for unknown paths', async () => {

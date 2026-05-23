@@ -3,12 +3,20 @@
 const dynamicNode = require('@aura-studio/dynamic-node');
 const { newOptions } = require('./options');
 const { MetaGenerator } = require('./meta');
+const {
+  EnvelopeTunnel,
+  envelopeHandlerFromModule,
+  metaFromModule,
+  nativeHTTPHandlerFromModule,
+} = require('./tunnel');
 
 class Dynamic {
   constructor(...opts) {
     this.options = newOptions(...opts);
     this.metaGenerator = new MetaGenerator();
     this._cache = new Map();
+    this._moduleCache = new Map();
+    this._httpHandlerCache = new Map();
     this._init();
   }
 
@@ -45,6 +53,19 @@ class Dynamic {
     }
   }
 
+  async getPackageModule(pkg, version) {
+    const ver = version || this.options.packageDefaultVersion || '';
+    const key = `${pkg}:${ver}`;
+
+    if (this._moduleCache.has(key)) {
+      return this._moduleCache.get(key);
+    }
+
+    const mod = await dynamicNode.getPackage(pkg, ver);
+    this._moduleCache.set(key, mod);
+    return mod;
+  }
+
   async getPackage(pkg, version) {
     const ver = version || this.options.packageDefaultVersion || '';
     const key = `${pkg}:${ver}`;
@@ -53,63 +74,28 @@ class Dynamic {
       return this._cache.get(key);
     }
 
-    const mod = await dynamicNode.getPackage(pkg, ver);
-
-    let handler;
-    if (typeof mod === 'function') {
-      handler = mod;
-    } else if (mod && typeof mod.default === 'function') {
-      handler = mod.default;
-    } else if (mod && typeof mod.handler === 'function') {
-      handler = mod.handler;
-    } else {
-      throw new Error(
-        `package ${pkg}@${ver} does not export a handler function`
-      );
-    }
-
-    let metaFn = null;
-    if (typeof mod.meta === 'function') {
-      metaFn = mod.meta;
-    } else if (mod && typeof mod.meta === 'string') {
-      metaFn = () => mod.meta;
-    }
-
-    const tunnel = {
-      invoke(route, req) {
-        let reqObj;
-        try {
-          reqObj = JSON.parse(req);
-        } catch (_) {
-          reqObj = { meta: {}, data: '' };
-        }
-
-        const resObj = { meta: {}, data: '' };
-
-        try {
-          handler(reqObj, resObj);
-        } catch (err) {
-          resObj.meta.Error = err.message || String(err);
-        }
-
-        return JSON.stringify(resObj);
-      },
-
-      meta() {
-        if (metaFn) {
-          try {
-            const result = metaFn();
-            return typeof result === 'string' ? result : JSON.stringify(result);
-          } catch (_) {
-            return '';
-          }
-        }
-        return '';
-      },
-    };
+    const mod = await this.getPackageModule(pkg, ver);
+    const tunnel = new EnvelopeTunnel(
+      envelopeHandlerFromModule(mod, pkg, ver),
+      metaFromModule(mod)
+    );
 
     this._cache.set(key, tunnel);
     return tunnel;
+  }
+
+  async getHTTPHandler(pkg, version) {
+    const ver = version || this.options.packageDefaultVersion || '';
+    const key = `${pkg}:${ver}`;
+
+    if (this._httpHandlerCache.has(key)) {
+      return this._httpHandlerCache.get(key);
+    }
+
+    const mod = await this.getPackageModule(pkg, ver);
+    const handler = nativeHTTPHandlerFromModule(mod, pkg, ver);
+    this._httpHandlerCache.set(key, handler);
+    return handler;
   }
 }
 
