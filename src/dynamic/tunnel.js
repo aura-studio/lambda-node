@@ -35,8 +35,14 @@ class EnvelopeTunnel extends Tunnel {
     if (!reqObj.meta || typeof reqObj.meta !== 'object') {
       reqObj.meta = {};
     }
-    reqObj.meta.Path = route;
+    // Expose the inner route to the handler (lambda-node convention). Do NOT
+    // clobber meta.Path when the framework already set it (HTTP mode sets it to
+    // the full URL path, matching Go's reqMeta["Path"]); only fall back to route
+    // when Path is absent (reqresp/sqs/event envelopes without a Path).
     reqObj.meta.route = route;
+    if (reqObj.meta.Path == null || reqObj.meta.Path === '') {
+      reqObj.meta.Path = route;
+    }
 
     const resObj = { meta: {}, data: '' };
 

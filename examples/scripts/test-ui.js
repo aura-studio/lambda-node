@@ -9,17 +9,24 @@ const PORT = Number(process.env.LAMBDA_NODE_EXAMPLE_UI_PORT || 3461);
 const SCRIPT_DIR = __dirname;
 
 const steps = [
-  ["00-clean", "Clean generated files"],
-  ["01-smoke", "Check exported API surface"],
-  ["02-dynamic", "Invoke dynamic packages directly"],
-  ["03-http-api", "Exercise HTTP /api and /meta"],
-  ["04-http-wapi", "Exercise HTTP /wapi req/res mode"],
-  ["05-reqresp", "Exercise ReqResp Lambda mode"],
-  ["06-event", "Exercise Event Lambda mode"],
-  ["07-sqs", "Exercise SQS reply and run modes"],
-  ["08-server", "Exercise unified server entrypoint"],
-  ["09-clients", "Exercise client helpers"],
-  ["99-run-all-local", "Run all local steps"],
+  ["00-clean", "Clean generated files", "Local (in-process)"],
+  ["01-smoke", "Check exported API surface", "Local (in-process)"],
+  ["02-dynamic", "Invoke dynamic packages directly", "Local (in-process)"],
+  ["03-http-api", "Exercise HTTP /api and /meta", "Local (in-process)"],
+  ["04-http-wapi", "Exercise HTTP /wapi req/res mode", "Local (in-process)"],
+  ["05-reqresp", "Exercise ReqResp Lambda mode", "Local (in-process)"],
+  ["06-event", "Exercise Event Lambda mode", "Local (in-process)"],
+  ["07-sqs", "Exercise SQS reply and run modes", "Local (in-process)"],
+  ["08-server", "Exercise unified server entrypoint", "Local (in-process)"],
+  ["09-clients", "Exercise client helpers", "Local (in-process)"],
+  ["99-run-all-local", "Run all local steps", "Local (in-process)"],
+  ["10-localstack-up", "Start LocalStack (S3+SQS) & upload 4 packages", "LocalStack e2e (Docker)"],
+  ["11-e2e-http", "HTTP: load package from S3 → /api invoke", "LocalStack e2e (Docker)"],
+  ["12-e2e-reqresp", "ReqResp: load package from S3 → invoke", "LocalStack e2e (Docker)"],
+  ["13-e2e-sqs", "SQS: load from S3 → invoke → SQS reply", "LocalStack e2e (Docker)"],
+  ["14-e2e-event", "Event: load package from S3 → fire-and-forget", "LocalStack e2e (Docker)"],
+  ["15-localstack-down", "Stop LocalStack & clean workspace", "LocalStack e2e (Docker)"],
+  ["98-run-all-e2e", "Run full LocalStack e2e cycle", "LocalStack e2e (Docker)"],
 ];
 
 const clients = new Map();
@@ -79,6 +86,20 @@ const server = http.createServer((req, res) => {
   res.end("not found");
 });
 
+function renderSteps() {
+  let html = "";
+  let currentGroup = null;
+  for (const [id, label, group] of steps) {
+    const groupName = group || "Steps";
+    if (groupName !== currentGroup) {
+      html += `<div class="group-title">${groupName}</div>`;
+      currentGroup = groupName;
+    }
+    html += `<button data-step="${id}"><strong>${id}</strong><span>${label}</span></button>`;
+  }
+  return html;
+}
+
 function renderPage() {
   return `<!doctype html>
 <html>
@@ -96,6 +117,8 @@ function renderPage() {
     button:hover { background: #eef5ff; }
     button strong { display: block; font-size: 14px; }
     button span { display: block; color: #5c6b7a; font-size: 12px; margin-top: 3px; }
+    .group-title { padding: 10px 14px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #6a7787; background: #f0f4fa; border-bottom: 1px solid #dfe6ef; }
+    .group-title:first-child { border-top: 0; }
     pre { min-height: 560px; margin: 0; padding: 14px; overflow: auto; font-size: 12px; line-height: 1.45; background: #111827; color: #e6edf7; }
     @media (max-width: 840px) { .layout { grid-template-columns: 1fr; } }
   </style>
@@ -105,7 +128,7 @@ function renderPage() {
     <h1>lambda-node examples</h1>
     <div class="layout">
       <section class="steps">
-        ${steps.map(([id, label]) => `<button data-step="${id}"><strong>${id}</strong><span>${label}</span></button>`).join("")}
+        ${renderSteps()}
       </section>
       <section class="log"><pre id="log"></pre></section>
     </div>

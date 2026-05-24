@@ -25,6 +25,19 @@ const HeaderOriginalPath = 'X-Original-Path';
 const { normalizePath, matchMethod } = require('./options');
 const { doSafeAsync, doDebugAsync } = require('./processor');
 
+// Mirror Go's http.methods / HandleAllMethods: register exactly these standard
+// methods per route so that any non-standard method (e.g. TRACE, PROPFIND) falls
+// through to the page-not-found handler and yields 404, matching Go (whose
+// MethodNotAllowed handler is registered but unreachable — HandleMethodNotAllowed
+// is never enabled, so gin routes unmatched methods to NoRoute → 404).
+const METHODS = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'];
+
+function handleMethods(app, path, handler) {
+  for (const method of METHODS) {
+    app[method](path, handler);
+  }
+}
+
 function installRewriteHandlers(engine) {
   const app = engine.app;
   const opts = engine.options;
@@ -59,10 +72,10 @@ function installRewriteHandlers(engine) {
 function installRawHandlers(engine) {
   const app = engine.app;
 
-  app.all(/^\/wapi(?:\/(.*))?$/, async (req, res) => {
+  handleMethods(app, /^\/wapi(?:\/(.*))?$/, async (req, res) => {
     await handleWAPI(engine, req, res, false, req.params[0] || '');
   });
-  app.all(/^\/_\/wapi(?:\/(.*))?$/, async (req, res) => {
+  handleMethods(app, /^\/_\/wapi(?:\/(.*))?$/, async (req, res) => {
     await handleWAPI(engine, req, res, true, req.params[0] || '');
   });
 }
@@ -70,12 +83,12 @@ function installRawHandlers(engine) {
 function installHandlers(engine) {
   const app = engine.app;
 
-  app.all('/', (req, res) => { res.status(200).send('OK'); });
-  app.all('/health-check', (req, res) => { res.status(200).send('OK'); });
+  handleMethods(app, '/', (req, res) => { res.status(200).send('OK'); });
+  handleMethods(app, '/health-check', (req, res) => { res.status(200).send('OK'); });
 
-  app.all('/api/*', async (req, res) => { await handleAPI(engine, req, res, false); });
-  app.all('/_/api/*', async (req, res) => { await handleAPI(engine, req, res, true); });
-  app.all('/meta/*', async (req, res) => { await handleMeta(engine, req, res); });
+  handleMethods(app, '/api/*', async (req, res) => { await handleAPI(engine, req, res, false); });
+  handleMethods(app, '/_/api/*', async (req, res) => { await handleAPI(engine, req, res, true); });
+  handleMethods(app, '/meta/*', async (req, res) => { await handleMeta(engine, req, res); });
 
   app.use((req, res) => { handlePageNotFound(engine, req, res); });
 }
@@ -98,18 +111,24 @@ async function handleAPI(engine, req, res, debug) {
   const apiPath = '/' + (req.params[0] || '');
   const reqMeta = genReqMeta(req);
 
-  let reqBody;
-  if (req.method === 'GET' || req.method === 'HEAD') {
-    reqBody = JSON.stringify(req.query || {});
+  // Mirror Go http.handlers: GET (and empty method) -> query map (first value
+  // per key); POST -> raw body bytes; any other method -> empty. The request is
+  // carried as a Buffer so binary/exact bytes survive the base64 envelope.
+  const method = (req.method || 'GET').toUpperCase();
+  let reqBuf;
+  if (method === 'GET' || method === '') {
+    reqBuf = Buffer.from(genGetReq(req), 'utf8');
+  } else if (method === 'POST') {
+    reqBuf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
   } else {
-    reqBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
+    reqBuf = Buffer.alloc(0);
   }
 
   const ctx = {
     [ContextPath]: apiPath,
     [ContextHeader]: req.headers,
     [ContextRequestMeta]: reqMeta,
-    [ContextRequest]: reqBody,
+    [ContextRequest]: reqBuf,
     [ContextResponse]: '',
     [ContextResponseMeta]: null,
     [ContextError]: null,
@@ -173,24 +192,134 @@ async function handleWAPI(engine, req, res, debug, rawPath) {
   req.baseUrl = '';
   req.params = {};
 
-  if (debug) {
-    req.headers['x-lambda-node-debug'] = 'true';
+  // Non-debug: delegate the live request/response to the native handler.
+  if (!debug) {
+    const next = (err) => {
+      if (!err) return;
+      console.error(err.message || err);
+      if (!res.headersSent) res.status(500).send('Internal Server Error');
+    };
+
+    try {
+      const result = handler(req, res, next);
+      if (result && typeof result.then === 'function') {
+        await result;
+      }
+    } catch (err) {
+      next(err);
+    }
+    return;
   }
 
-  const next = (err) => {
-    if (!err) return;
-    console.error(err.message || err);
-    if (!res.headersSent) res.status(500).send('Internal Server Error');
+  // Debug (/_/wapi): mirror Go debugWireProcessor — capture stdout/stderr, run
+  // the handler against a buffered response, then return a formatDebug dump
+  // (text/plain) instead of the real response.
+  req.headers['x-lambda-node-debug'] = 'true';
+  const debugPath = '/' + parts.slice(2).join('/');
+
+  // Tee the request body so it can be shown in the dump without preventing the
+  // native handler from reading the same stream (multiple 'data' listeners all
+  // receive the chunks).
+  const reqChunks = [];
+  req.on('data', (c) => { reqChunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)); });
+
+  const capture = captureResponse(res);
+  let handlerErr = null;
+  const next = (err) => { if (err) handlerErr = err; };
+
+  const { stdout, stderr, error } = await doDebugAsync(async () => {
+    try {
+      const result = handler(req, res, next);
+      if (result && typeof result.then === 'function') await result;
+    } catch (err) {
+      handlerErr = err;
+    }
+    if (!capture.isEnded() && !handlerErr) {
+      await new Promise((resolve) => {
+        let timer = setTimeout(() => { timer = null; resolve(); }, 30000);
+        capture.waitEnd().then(() => { if (timer) clearTimeout(timer); resolve(); });
+      });
+    }
+  });
+
+  capture.restore();
+
+  const ctx = {
+    [ContextPath]: debugPath,
+    [ContextHeader]: req.headers,
+    [ContextRequestMeta]: {},
+    [ContextResponseMeta]: {},
+    [ContextStdout]: stdout,
+    [ContextStderr]: stderr,
+    [ContextError]: handlerErr,
+    [ContextPanic]: error,
+    [ContextRequest]: reconstructWireRequest(req, Buffer.concat(reqChunks)),
+    [ContextResponse]: capture.body(),
   };
 
-  try {
-    const result = handler(req, res, next);
-    if (result && typeof result.then === 'function') {
-      await result;
-    }
-  } catch (err) {
-    next(err);
+  res.status(200).type('text/plain').send(formatDebug(req, ctx));
+}
+
+// captureResponse intercepts the low-level writes on an Express/Node response so
+// a native handler's output can be buffered (for the /_/wapi debug dump) instead
+// of being flushed to the client. Call restore() before sending the real reply.
+function captureResponse(res) {
+  const chunks = [];
+  let ended = false;
+  let resolveEnd;
+  const endPromise = new Promise((resolve) => { resolveEnd = resolve; });
+
+  const origWrite = res.write;
+  const origEnd = res.end;
+  const origWriteHead = res.writeHead;
+
+  function pushChunk(chunk, enc) {
+    if (chunk == null || typeof chunk === 'function') return;
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, typeof enc === 'string' ? enc : 'utf8'));
   }
+
+  res.write = function (chunk, enc, cb) {
+    pushChunk(chunk, enc);
+    const done = typeof enc === 'function' ? enc : cb;
+    if (typeof done === 'function') done();
+    return true;
+  };
+
+  res.end = function (chunk, enc, cb) {
+    pushChunk(chunk, enc);
+    if (!ended) { ended = true; resolveEnd(); }
+    const done = typeof chunk === 'function' ? chunk : (typeof enc === 'function' ? enc : cb);
+    if (typeof done === 'function') done();
+    return res;
+  };
+
+  res.writeHead = function (status) {
+    if (typeof status === 'number') res.statusCode = status;
+    return res;
+  };
+
+  return {
+    restore() {
+      res.write = origWrite;
+      res.end = origEnd;
+      res.writeHead = origWriteHead;
+    },
+    body() { return Buffer.concat(chunks); },
+    isEnded() { return ended; },
+    waitEnd() { return endPromise; },
+  };
+}
+
+// reconstructWireRequest approximates Go's c.Request.Write(&buf): request line +
+// headers + body, for display in the debug dump.
+function reconstructWireRequest(req, bodyBuf) {
+  const target = req.originalUrl || req.url || '/';
+  const lines = [`${req.method || 'GET'} ${target} HTTP/1.1`];
+  for (const [k, v] of Object.entries(req.headers || {})) {
+    lines.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`);
+  }
+  const head = Buffer.from(lines.join('\r\n') + '\r\n\r\n', 'utf8');
+  return bodyBuf && bodyBuf.length ? Buffer.concat([head, bodyBuf]) : head;
 }
 
 async function handleMeta(engine, req, res) {
@@ -226,7 +355,8 @@ async function doProcessor(engine, ctx) {
   const req = ctx[ContextRequest];
   const reqMeta = ctx[ContextRequestMeta] || {};
 
-  const reqEnvelope = { meta: reqMeta, data: Buffer.from(req, 'utf8').toString('base64') };
+  const reqBuf = Buffer.isBuffer(req) ? req : Buffer.from(String(req == null ? '' : req), 'utf8');
+  const reqEnvelope = { meta: reqMeta, data: reqBuf.toString('base64') };
   const rsp = await handlePath(engine, path_, JSON.stringify(reqEnvelope));
 
   let rspEnvelope;
@@ -235,7 +365,9 @@ async function doProcessor(engine, ctx) {
   if (rspEnvelope.meta && Object.keys(rspEnvelope.meta).length > 0) ctx[ContextResponseMeta] = rspEnvelope.meta;
   if (rspEnvelope.meta && rspEnvelope.meta[RspMetaError]) { ctx[ContextError] = new Error(String(rspEnvelope.meta[RspMetaError])); return; }
   if (rspEnvelope.data) {
-    try { ctx[ContextResponse] = Buffer.from(rspEnvelope.data, 'base64').toString('utf8'); } catch (err) { ctx[ContextError] = err; }
+    // Keep the decoded response as raw bytes (Buffer) so binary/exact bytes are
+    // written back verbatim, matching Go's c.Data(status, ct, []byte(rspBody)).
+    try { ctx[ContextResponse] = Buffer.from(rspEnvelope.data, 'base64'); } catch (err) { ctx[ContextError] = err; }
   } else { ctx[ContextResponse] = ''; }
 }
 
@@ -256,6 +388,31 @@ async function metaHandler(engine, path_) {
   return engine.dynamic.metaGenerator.generate(tunnelMeta);
 }
 
+function pathnameOf(req) {
+  const u = req.url || '';
+  const i = u.indexOf('?');
+  return i < 0 ? u : u.slice(0, i);
+}
+
+// genGetReq mirrors Go's genGetReq: build a {key: firstValue} map from the
+// query string (first value per key, like url.Query()[k][0]) and JSON-encode it
+// with sorted keys (Go marshals maps with sorted keys).
+function genGetReq(req) {
+  const u = req.url || '';
+  const i = u.indexOf('?');
+  const qs = i < 0 ? '' : u.slice(i + 1);
+  const params = new URLSearchParams(qs);
+  const dataMap = {};
+  for (const key of params.keys()) {
+    if (!Object.prototype.hasOwnProperty.call(dataMap, key)) {
+      dataMap[key] = params.get(key);
+    }
+  }
+  const sorted = {};
+  for (const key of Object.keys(dataMap).sort()) sorted[key] = dataMap[key];
+  return JSON.stringify(sorted);
+}
+
 function genReqMeta(req) {
   const meta = {};
 
@@ -268,7 +425,7 @@ function genReqMeta(req) {
   else if (req.headers['x-forwarded-for']) remoteAddr = req.headers['x-forwarded-for'];
   meta[ReqMetaRemoteAddr] = remoteAddr.split(',')[0].trim();
 
-  meta[ReqMetaPath] = req.url;
+  meta[ReqMetaPath] = pathnameOf(req);
 
   return meta;
 }
@@ -286,8 +443,8 @@ function formatDebug(req, ctx) {
   lines.push(`Stderr: ${ctx[ContextStderr] || ''}`);
   lines.push(`Error: ${ctx[ContextError] ? (ctx[ContextError].message || ctx[ContextError]) : ''}`);
   lines.push(`Panic: ${ctx[ContextPanic] ? (ctx[ContextPanic].message || ctx[ContextPanic]) : ''}`);
-  lines.push(`Request: ${ctx[ContextRequest] || ''}`);
-  lines.push(`Response: ${ctx[ContextResponse] || ''}`);
+  lines.push(`Request: ${Buffer.isBuffer(ctx[ContextRequest]) ? ctx[ContextRequest].toString('utf8') : (ctx[ContextRequest] || '')}`);
+  lines.push(`Response: ${Buffer.isBuffer(ctx[ContextResponse]) ? ctx[ContextResponse].toString('utf8') : (ctx[ContextResponse] || '')}`);
   return lines.join('\n') + '\n';
 }
 

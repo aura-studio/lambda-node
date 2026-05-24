@@ -31,11 +31,12 @@ class Engine {
     installRewriteHandlers(this);
     installRawHandlers(this);
 
-    // Parse request bodies for envelope-mode handlers only. Native /wapi
-    // packages are mounted before these parsers so their own app can read req.
-    this.app.use(express.json({ limit: '50mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-    this.app.use(express.text({ limit: '50mb' }));
+    // Capture the request body as raw bytes for envelope-mode (/api) handlers.
+    // This mirrors Go's genPostReq (io.ReadAll of the body), preserving the
+    // exact bytes — required for signature/HMAC verification and binary bodies.
+    // Native /wapi packages are mounted before this parser so their own handler
+    // can read the request stream directly.
+    this.app.use(express.raw({ type: () => true, limit: '50mb' }));
 
     installHandlers(this);
   }

@@ -1,0 +1,7 @@
+{
+  "name": "@lambda-node-e2e/http-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "description": "HTTP-mode e2e package loaded from LocalStack S3 via dynamic-node"
+}
