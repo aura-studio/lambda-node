@@ -7,6 +7,7 @@ const {
   invokeLambda,
   startLambdaContainer,
   stopLambdaContainer,
+  uploadPackagesForContainer,
   waitForLambda,
 } = require('../../../_shared/docker-flow');
 const { receiveOne } = require('../../../_shared/localstack');
@@ -45,6 +46,7 @@ async function invokeAndRead(variant, route, payload, queues, client) {
 
 async function runDockerCases(queues, client) {
   buildImage(config);
+  await uploadPackagesForContainer(config);
   startLambdaContainer(config);
   try {
     await waitForLambda(config);

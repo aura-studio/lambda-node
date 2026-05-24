@@ -7,6 +7,7 @@ const {
   invokeLambda,
   startLambdaContainer,
   stopLambdaContainer,
+  uploadPackagesForContainer,
   waitForLambda,
 } = require('../../../_shared/docker-flow');
 const config = require('./config');
@@ -16,6 +17,7 @@ const dec = (payload) => JSON.parse(lambda.protocol.decodePayload(payload));
 
 async function runDockerCases() {
   buildImage(config);
+  await uploadPackagesForContainer(config);
   startLambdaContainer(config);
   try {
     await waitForLambda(config);

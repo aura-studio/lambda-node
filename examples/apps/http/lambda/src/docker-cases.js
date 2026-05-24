@@ -6,12 +6,16 @@ const {
   invokeLambda,
   startLambdaContainer,
   stopLambdaContainer,
+  uploadPackagesForContainer,
   waitForLambda,
 } = require('../../../_shared/docker-flow');
 const config = require('./config');
 
 async function runDockerCases() {
   buildImage(config);
+  // Build + upload packages at the container's auto-detected toolchain so the
+  // runtime container can download them from S3.
+  await uploadPackagesForContainer(config);
   startLambdaContainer(config);
   try {
     await waitForLambda(config);
