@@ -9,9 +9,9 @@ function app(req, res) {
     res.setHeader('content-type', 'application/json');
     res.statusCode = 200;
     res.end(JSON.stringify({
-      handler: 'wapi-bundle',
+      handler: 'wapifull',
       mode: 'wapi',
-      variant: 'bundle',
+      variant: 'full',
       method: req.method,
       url: req.url,
       body: Buffer.concat(chunks).toString('utf8'),

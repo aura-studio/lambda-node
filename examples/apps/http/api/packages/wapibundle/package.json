@@ -1,5 +1,5 @@
 {
-  "name": "@http-app/wapi-bundle",
+  "name": "@http-app/wapibundle",
   "version": "1.0.0",
   "private": true,
   "main": "bundle.js",

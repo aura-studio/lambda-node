@@ -32,7 +32,7 @@ module.exports = {
   warehouse: process.env.LAMBDA_NODE_WAREHOUSE || path.join(lambdaDir, '.tmp', 'warehouse'),
   packageDir: path.join(apiDir, 'packages'),
   packages: {
-    'app-full': { variant: 'full', file: 'index' },
-    'app-bundle': { variant: 'bundle', file: 'bundle' },
+    'appfull': { variant: 'full', file: 'index' },
+    'appbundle': { variant: 'bundle', file: 'bundle' },
   },
 };

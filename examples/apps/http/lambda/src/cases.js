@@ -13,7 +13,7 @@ async function runVariant(variant, opts = {}) {
   const baseUrl = await listen(server);
 
   try {
-    const apiPkg = `api-${variant}`;
+    const apiPkg = `api${variant}`;
     const api = await fetchText(`${baseUrl}/api/${apiPkg}/v1/echo`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -24,7 +24,7 @@ async function runVariant(variant, opts = {}) {
     await assertPackageBuildMeta(engine, config, apiPkg, variant);
     console.log(`[http] CASE api+${variant} PASS`);
 
-    const wapiPkg = `wapi-${variant}`;
+    const wapiPkg = `wapi${variant}`;
     const wapi = await fetchText(`${baseUrl}/wapi/${wapiPkg}/v1/hello?x=1`, {
       method: 'POST',
       headers: { 'content-type': 'text/plain' },
@@ -32,7 +32,7 @@ async function runVariant(variant, opts = {}) {
     });
     assert.equal(wapi.status, 200);
     const body = JSON.parse(wapi.text);
-    assert.equal(body.handler, `wapi-${variant}`);
+    assert.equal(body.handler, `wapi${variant}`);
     assert.equal(body.url, '/hello?x=1');
     assert.equal(body.body, 'wire-body');
     await assertPackageBuildMeta(engine, config, wapiPkg, variant);

@@ -21,43 +21,43 @@ environments:
         - s3://lambda-node-app-http
 
 procedures:
-  - name: api-full
+  - name: apifull
     environment: node-full
     source:
       module: .
-      package: packages/api-full
+      package: packages/apifull
       version: v1
     target:
       namespace: app
-      package: api-full
+      package: apifull
       version: v1
-  - name: wapi-full
+  - name: wapifull
     environment: node-full
     source:
       module: .
-      package: packages/wapi-full
+      package: packages/wapifull
       version: v1
     target:
       namespace: app
-      package: wapi-full
+      package: wapifull
       version: v1
-  - name: api-bundle
+  - name: apibundle
     environment: node-bundle
     source:
       module: .
-      package: packages/api-bundle
+      package: packages/apibundle
       version: v1
     target:
       namespace: app
-      package: api-bundle
+      package: apibundle
       version: v1
-  - name: wapi-bundle
+  - name: wapibundle
     environment: node-bundle
     source:
       module: .
-      package: packages/wapi-bundle
+      package: packages/wapibundle
       version: v1
     target:
       namespace: app
-      package: wapi-bundle
+      package: wapibundle
       version: v1

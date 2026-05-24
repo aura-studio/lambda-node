@@ -10,7 +10,7 @@ const config = require('./config');
 const enc = (obj) => lambda.protocol.encodePayload(JSON.stringify(obj));
 
 async function runCase(variant, route, opts = {}) {
-  const pkg = `app-${variant}`;
+  const pkg = `app${variant}`;
   const marker = path.join(config.tmpDir, `marker-${variant}-${route.slice(1)}-${Date.now()}.txt`);
   const engine = new lambda.event.Engine([], dynamicOptions(lambda, config, variant, opts));
   const response = await engine.invoke({

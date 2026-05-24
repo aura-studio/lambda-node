@@ -16,7 +16,7 @@ const enc = (obj) => lambda.protocol.encodePayload(JSON.stringify(obj));
 const dec = (payload) => JSON.parse(lambda.protocol.decodePayload(payload));
 
 async function invokeAndRead(variant, route, payload, queues, client) {
-  const pkg = `app-${variant}`;
+  const pkg = `app${variant}`;
   const corr = `docker-${variant}-${route.slice(1)}`;
   const result = await invokeLambda(config, {
     variant,
@@ -50,11 +50,11 @@ async function runDockerCases(queues, client) {
     await waitForLambda(config);
 
     const echo = await invokeAndRead('full', '/echo', { name: 'docker' }, queues, client);
-    console.log('[sqs docker] echo-full response:', JSON.stringify(echo));
+    console.log('[sqs docker] echofull response:', JSON.stringify(echo));
     assert.equal(echo.message, 'processed docker via sqs api (full)');
 
     const sum = await invokeAndRead('bundle', '/sum', { a: 4, b: 6 }, queues, client);
-    console.log('[sqs docker] sum-bundle response:', JSON.stringify(sum));
+    console.log('[sqs docker] sumbundle response:', JSON.stringify(sum));
     assert.equal(sum.sum, 10);
   } finally {
     stopLambdaContainer(config);

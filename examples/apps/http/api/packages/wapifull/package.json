@@ -1,5 +1,5 @@
 {
-  "name": "@http-app/wapi-full",
+  "name": "@http-app/wapifull",
   "version": "1.0.0",
   "private": true,
   "main": "index.js",

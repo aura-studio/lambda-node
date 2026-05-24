@@ -33,7 +33,7 @@ module.exports = {
   tmpDir: process.env.LAMBDA_NODE_APP_EVENT_TMP || path.join(lambdaDir, '.tmp'),
   packageDir: path.join(apiDir, 'packages'),
   packages: {
-    'app-full': { variant: 'full', file: 'index' },
-    'app-bundle': { variant: 'bundle', file: 'bundle' },
+    'appfull': { variant: 'full', file: 'index' },
+    'appbundle': { variant: 'bundle', file: 'bundle' },
   },
 };

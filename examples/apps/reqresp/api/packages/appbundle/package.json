@@ -1,5 +1,5 @@
 {
-  "name": "@reqresp-app/app-bundle",
+  "name": "@reqresp-app/appbundle",
   "version": "1.0.0",
   "private": true,
   "main": "bundle.js",

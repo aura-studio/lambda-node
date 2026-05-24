@@ -1,5 +1,5 @@
 {
-  "name": "@event-app/app-full",
+  "name": "@reqresp-app/appfull",
   "version": "1.0.0",
   "private": true,
   "main": "index.js",

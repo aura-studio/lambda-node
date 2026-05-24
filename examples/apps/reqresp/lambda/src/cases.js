@@ -9,7 +9,7 @@ const enc = (obj) => lambda.protocol.encodePayload(JSON.stringify(obj));
 const dec = (payload) => JSON.parse(lambda.protocol.decodePayload(payload));
 
 async function runVariant(variant, opts = {}) {
-  const pkg = `app-${variant}`;
+  const pkg = `app${variant}`;
   const engine = new lambda.reqresp.Engine([], dynamicOptions(lambda, config, variant, opts));
 
   const echo = await engine.invoke({

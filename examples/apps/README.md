@@ -112,7 +112,7 @@ Each app has a `template.yaml` equivalent to the Dockerfile flow:
 ```bash
 cd examples/apps/http/lambda
 sam build
-sam local invoke HttpFunction --event events/api-full.json
+sam local invoke HttpFunction --event events/apifull.json
 ```
 
 The examples do not require SAM for automated testing; SAM is included so the same Docker image layout can be inspected or adapted to AWS deployment.

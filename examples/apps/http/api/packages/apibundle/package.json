@@ -1,5 +1,5 @@
 {
-  "name": "@event-app/app-bundle",
+  "name": "@http-app/apibundle",
   "version": "1.0.0",
   "private": true,
   "main": "bundle.js",

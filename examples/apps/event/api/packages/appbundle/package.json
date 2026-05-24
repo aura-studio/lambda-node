@@ -1,8 +1,8 @@
 {
-  "name": "@sqs-app/app-full",
+  "name": "@event-app/appbundle",
   "version": "1.0.0",
   "private": true,
-  "main": "index.js",
+  "main": "bundle.js",
   "dependencies": {
     "@aura-studio/service-node": "file:../../../../../../../service-node"
   }

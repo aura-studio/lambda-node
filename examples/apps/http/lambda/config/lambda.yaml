@@ -20,7 +20,7 @@ dynamic:
     namespace: app
     defaultVersion: v1
     preload:
-      - package: api-full
+      - package: apifull
         version: v1
-      - package: wapi-full
+      - package: wapifull
         version: v1

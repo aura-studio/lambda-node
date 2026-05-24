@@ -32,9 +32,9 @@ module.exports = {
   warehouse: process.env.LAMBDA_NODE_WAREHOUSE || path.join(lambdaDir, '.tmp', 'warehouse'),
   packageDir: path.join(apiDir, 'packages'),
   packages: {
-    'api-full': { variant: 'full', file: 'index', mode: 'api' },
-    'wapi-full': { variant: 'full', file: 'index', mode: 'wapi' },
-    'api-bundle': { variant: 'bundle', file: 'bundle', mode: 'api' },
-    'wapi-bundle': { variant: 'bundle', file: 'bundle', mode: 'wapi' },
+    'apifull': { variant: 'full', file: 'index', mode: 'api' },
+    'wapifull': { variant: 'full', file: 'index', mode: 'wapi' },
+    'apibundle': { variant: 'bundle', file: 'bundle', mode: 'api' },
+    'wapibundle': { variant: 'bundle', file: 'bundle', mode: 'wapi' },
   },
 };

@@ -14,7 +14,7 @@ const config = require('./config');
 const enc = (obj) => lambda.protocol.encodePayload(JSON.stringify(obj));
 
 async function invokeEvent(variant, route) {
-  const pkg = `app-${variant}`;
+  const pkg = `app${variant}`;
   const result = await invokeLambda(config, {
     variant,
     path: `/api/${pkg}/v1${route}`,

@@ -1,7 +1,7 @@
 {
   "variant": "full",
   "version": "2.0",
-  "rawPath": "/api/api-full/v1/echo",
+  "rawPath": "/api/apifull/v1/echo",
   "rawQueryString": "",
   "headers": {
     "content-type": "application/json"
@@ -9,7 +9,7 @@
   "requestContext": {
     "http": {
       "method": "POST",
-      "path": "/api/api-full/v1/echo"
+      "path": "/api/apifull/v1/echo"
     }
   },
   "body": "{\"name\":\"sam\"}",

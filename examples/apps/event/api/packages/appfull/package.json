@@ -1,8 +1,8 @@
 {
-  "name": "@http-app/api-bundle",
+  "name": "@event-app/appfull",
   "version": "1.0.0",
   "private": true,
-  "main": "bundle.js",
+  "main": "index.js",
   "dependencies": {
     "@aura-studio/service-node": "file:../../../../../../../service-node"
   }

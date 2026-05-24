@@ -21,23 +21,23 @@ environments:
         - s3://lambda-node-app-reqresp
 
 procedures:
-  - name: app-full
+  - name: appfull
     environment: node-full
     source:
       module: .
-      package: packages/app-full
+      package: packages/appfull
       version: v1
     target:
       namespace: app
-      package: app-full
+      package: appfull
       version: v1
-  - name: app-bundle
+  - name: appbundle
     environment: node-bundle
     source:
       module: .
-      package: packages/app-bundle
+      package: packages/appbundle
       version: v1
     target:
       namespace: app
-      package: app-bundle
+      package: appbundle
       version: v1

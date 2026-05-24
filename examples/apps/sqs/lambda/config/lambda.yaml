@@ -20,5 +20,5 @@ dynamic:
     namespace: app
     defaultVersion: v1
     preload:
-      - package: app-full
+      - package: appfull
         version: v1

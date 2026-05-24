@@ -10,7 +10,7 @@ const enc = (obj) => lambda.protocol.encodePayload(JSON.stringify(obj));
 const dec = (payload) => JSON.parse(lambda.protocol.decodePayload(payload));
 
 async function runCase(variant, route, payload, expect, queues, client, opts = {}) {
-  const pkg = `app-${variant}`;
+  const pkg = `app${variant}`;
   const engine = new lambda.sqs.Engine(
     [
       lambda.sqs.withRunMode(lambda.sqs.RunModePartial),
