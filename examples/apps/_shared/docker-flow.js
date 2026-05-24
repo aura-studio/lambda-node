@@ -17,9 +17,11 @@ function dockerEndpoint(config) {
 
 function buildImage(config) {
   const image = imageName(config);
-  const context = path.resolve(config.appDir, '..', '..', '..', '..');
+  const appRoot = config.appRoot || config.appDir;
+  const lambdaDir = config.lambdaDir || config.appDir;
+  const context = path.resolve(appRoot, '..', '..', '..', '..');
   console.log(`[${config.logPrefix}] docker build ${image}`);
-  docker(['build', '-t', image, '-f', path.join(config.appDir, 'Dockerfile'), context]);
+  docker(['build', '-t', image, '-f', path.join(lambdaDir, 'Dockerfile'), context]);
   return image;
 }
 

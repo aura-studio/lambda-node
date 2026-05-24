@@ -1,0 +1,6 @@
+{
+  "name": "lambda-node-app-sqs-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dynamic API packages for the lambda-node SQS app example"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@event-app/app-bundle",
+  "version": "1.0.0",
+  "private": true,
+  "main": "bundle.js",
+  "dependencies": {
+    "@aura-studio/service-node": "file:../../../../../../../service-node"
+  }
+}

@@ -2,10 +2,9 @@
 
 // UI glue for the standalone example apps (examples/apps/<name>).
 //
-// Each app is an independent project with its own package.json / node_modules /
-// test.js. This helper runs one app the same way a developer would: ensure its
-// deps are installed, then run its test.js in the app's own directory (so module
-// resolution and relative paths resolve against the app, not this script).
+// Each app is split into a lambda host project and an api package project. This
+// helper runs the lambda project the same way a developer would: ensure its deps
+// are installed, then run lambda/test.js in that directory.
 //
 // Output is inherited so the Web UI streams it live; the exit code is propagated
 // so the UI shows the correct [exit N].
@@ -25,15 +24,16 @@ function npmInstall(cwd) {
 
 function runApp(name, args = []) {
   const appDir = path.join(APPS_DIR, name);
-  if (!fs.existsSync(path.join(appDir, 'test.js'))) {
-    console.error(`run-app: unknown app "${name}" (${appDir})`);
+  const lambdaDir = path.join(appDir, 'lambda');
+  if (!fs.existsSync(path.join(lambdaDir, 'test.js'))) {
+    console.error(`run-app: unknown app "${name}" (${lambdaDir})`);
     process.exitCode = 1;
     return;
   }
 
-  if (depsNeedInstall(appDir)) {
+  if (depsNeedInstall(lambdaDir)) {
     console.log(`[run-app] installing deps for ${name} ...`);
-    const inst = npmInstall(appDir);
+    const inst = npmInstall(lambdaDir);
     if (inst.status !== 0) {
       console.error(`[run-app] npm install failed for ${name}`);
       process.exitCode = inst.status || 1;
@@ -42,8 +42,8 @@ function runApp(name, args = []) {
   }
 
   const suffix = args.length ? ` ${args.join(' ')}` : '';
-  console.log(`[run-app] running examples/apps/${name}/test.js${suffix} ...`);
-  const res = spawnSync(process.execPath, ['test.js', ...args], { cwd: appDir, stdio: 'inherit' });
+  console.log(`[run-app] running examples/apps/${name}/lambda/test.js${suffix} ...`);
+  const res = spawnSync(process.execPath, ['test.js', ...args], { cwd: lambdaDir, stdio: 'inherit' });
   process.exitCode = res.status == null ? 1 : res.status;
 }
 

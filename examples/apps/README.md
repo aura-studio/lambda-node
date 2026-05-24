@@ -9,7 +9,10 @@ This directory contains four independent app projects, one for each lambda-node 
 | `sqs/` | SQS | 14568 | 19068 | `echo+sum x full+bundle`, with an SQS reply queue |
 | `event/` | Event | 14569 | 19069 | `echo+notify x full+bundle`, verified by marker files |
 
-Each project owns its own `package.json`, `node_modules`, LocalStack container, bucket, queues, dynamic packages, Dockerfile, SAM template, and lambda YAML config.
+Each project is split like the production `scp-lambda` / `scp-api` shape:
+
+- `lambda/` is the Lambda host project. It owns `package.json`, `node_modules`, Dockerfile, SAM template, runtime config, bootstrap code, and the executable tests.
+- `api/` is the dynamic package project. It owns the package module version plus the `packages/` tree that is built and uploaded to S3.
 
 The dynamically loaded packages intentionally do not hand-write the Tunnel interface:
 
@@ -26,15 +29,19 @@ Each app uses the same structure:
 
 ```text
 examples/apps/<app>/
-  config/lambda.yaml      # Lambda/dynamic config shape for the container example
-  Dockerfile              # AWS Lambda container image
-  template.yaml           # SAM image template
-  packages/               # dynamic-node packages uploaded to LocalStack S3
-  src/config.js           # executable test config
-  src/cases.js            # local in-process engine cases
-  src/bootstrap.js        # Lambda container handler
-  src/docker-cases.js     # invoke the Lambda runtime container
-  test.js                 # orchestration: LocalStack, upload, local cases, optional Docker Lambda
+  api/
+    package.json          # module/version source for dynamic-node-cli build meta
+    packages/             # service-node / wire-node packages uploaded to LocalStack S3
+  lambda/
+    config/lambda.yaml    # Lambda/dynamic config shape for the container example
+    Dockerfile            # AWS Lambda container image
+    template.yaml         # SAM image template
+    events/               # SAM/local invoke sample events
+    src/config.js         # executable test config
+    src/cases.js          # local in-process engine cases
+    src/bootstrap.js      # Lambda container handler
+    src/docker-cases.js   # invoke the Lambda runtime container
+    test.js               # orchestration: LocalStack, upload, local cases, optional Docker Lambda
 ```
 
 The shared helper code lives in `examples/apps/_shared/` so the app examples stay small while still showing the moving parts clearly.
@@ -42,7 +49,7 @@ The shared helper code lives in `examples/apps/_shared/` so the app examples sta
 ## Local engine flow
 
 ```bash
-cd examples/apps/http
+cd examples/apps/http/lambda
 npm install
 npm test
 ```
@@ -61,7 +68,7 @@ npm test -- --keep-up
 ## Dockerfile Lambda flow
 
 ```bash
-cd examples/apps/http
+cd examples/apps/http/lambda
 npm test -- --docker-lambda
 ```
 
@@ -80,7 +87,7 @@ The Docker build context is the `aura-studio` workspace root so the image can us
 Each app has a `template.yaml` equivalent to the Dockerfile flow:
 
 ```bash
-cd examples/apps/http
+cd examples/apps/http/lambda
 sam build
 sam local invoke HttpFunction --event events/api-full.json
 ```

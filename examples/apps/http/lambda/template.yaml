@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: lambda-node HTTP app example packaged as an AWS Lambda container image.
+
+Resources:
+  HttpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          AWS_ENDPOINT_URL: http://host.docker.internal:14566
+          AWS_ENDPOINT_URL_S3: http://host.docker.internal:14566
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_S3_FORCE_PATH_STYLE: 'true'
+          LAMBDA_NODE_CONFIG: /var/task/examples/apps/http/lambda/config/lambda.yaml
+          LAMBDA_NODE_WAREHOUSE: /tmp/app-http/warehouse
+          NODE_PATH: /var/task/examples/apps/http/lambda/node_modules
+      Events:
+        Proxy:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      DockerContext: ../../../..
+      Dockerfile: lambda-node/examples/apps/http/lambda/Dockerfile

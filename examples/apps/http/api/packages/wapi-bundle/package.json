@@ -1,0 +1,9 @@
+{
+  "name": "@http-app/wapi-bundle",
+  "version": "1.0.0",
+  "private": true,
+  "main": "bundle.js",
+  "dependencies": {
+    "@aura-studio/wire-node": "file:../../../../../../../wire-node"
+  }
+}

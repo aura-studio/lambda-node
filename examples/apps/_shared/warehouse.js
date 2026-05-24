@@ -22,6 +22,7 @@ async function buildPackage(config, name) {
   const { Builder } = await loadDynamicNodeCliBuilder();
   const spec = config.packages[name];
   const dir = path.join(config.packageDir, name);
+  const sourceModule = config.apiDir || config.appDir;
   const dynamic = dynamicName(config, name);
   const environment = toolchainString(config, spec.variant);
   const outDir = path.join(config.warehouse, environment, dynamic);
@@ -31,8 +32,8 @@ async function buildPackage(config, name) {
     await new Builder({
       name: dynamic,
       sourcePath: dir,
-      sourceModule: config.appDir,
-      sourcePackage: path.relative(config.appDir, dir) || '.',
+      sourceModule,
+      sourcePackage: path.relative(sourceModule, dir) || '.',
       sourceVersion: config.version,
       entry,
       version: config.version,
@@ -124,11 +125,12 @@ function dynamicOptions(lambda, config, variant, overrides = {}) {
 async function assertPackageBuildMeta(engine, config, pkg, variant) {
   const raw = await engine.dynamic.metaPackage(pkg, config.version);
   const meta = JSON.parse(raw || '{}');
-  const appPackage = JSON.parse(fs.readFileSync(path.join(config.appDir, 'package.json'), 'utf8'));
+  const sourceModule = config.apiDir || config.appDir;
+  const appPackage = JSON.parse(fs.readFileSync(path.join(sourceModule, 'package.json'), 'utf8'));
 
   assert.deepEqual(Object.keys(meta.dynamic || {}).sort(), ['built', 'module', 'version']);
   assert.deepEqual(Object.keys(meta.toolchain || {}).sort(), ['arch', 'compiler', 'os', 'variant']);
-  assert.equal(meta.dynamic.module, config.appDir);
+  assert.equal(meta.dynamic.module, sourceModule);
   assert.equal(meta.dynamic.version, appPackage.version || 'unknown');
   assert.match(meta.dynamic.built, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   assert.equal(meta.toolchain.os, config.toolchain.os);
