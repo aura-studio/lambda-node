@@ -4,8 +4,6 @@ const service = require('@aura-studio/service-node');
 
 const app = {
   echo(ctx, payload) {
-    ctx.setResponseMeta('handler', 'app-full');
-    ctx.setResponseMeta('variant', 'full');
     return {
       op: 'echo',
       message: `hello ${payload.name || 'world'} from reqresp api (full)`,

@@ -4,8 +4,6 @@ const service = require('@aura-studio/service-node');
 
 const app = {
   echo(ctx, payload) {
-    ctx.setResponseMeta('handler', 'app-full');
-    ctx.setResponseMeta('variant', 'full');
     return {
       op: 'echo',
       message: `processed ${payload.name || 'world'} via sqs api (full)`,
