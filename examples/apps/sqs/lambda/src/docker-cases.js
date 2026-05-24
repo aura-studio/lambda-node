@@ -20,7 +20,6 @@ async function invokeAndRead(variant, route, payload, queues, client) {
   const pkg = `app${variant}`;
   const corr = `docker-${variant}-${route.slice(1)}`;
   const result = await invokeLambda(config, {
-    variant,
     Records: [
       {
         messageId: corr,
@@ -44,25 +43,34 @@ async function invokeAndRead(variant, route, payload, queues, client) {
   return dec(reply.payload);
 }
 
-async function runDockerCases(queues, client) {
-  buildImage(config);
-  await uploadPackagesForContainer(config);
-  startLambdaContainer(config);
+// One container per variant, fixed via DYNAMIC_VARIANT; each loads only its own
+// package path. Events carry no variant.
+async function runVariantContainer(variant, queues, client) {
+  startLambdaContainer(config, { DYNAMIC_VARIANT: variant });
   try {
     await waitForLambda(config);
 
-    const echo = await invokeAndRead('full', '/echo', { name: 'docker' }, queues, client);
-    console.log('[sqs docker] echofull response:', JSON.stringify(echo));
-    assert.equal(echo.message, 'processed docker via sqs api (full)');
+    const echo = await invokeAndRead(variant, '/echo', { name: 'docker' }, queues, client);
+    console.log(`[sqs docker] app${variant} echo:`, JSON.stringify(echo));
+    assert.equal(echo.message, `processed docker via sqs api (${variant})`);
 
-    const sum = await invokeAndRead('bundle', '/sum', { a: 4, b: 6 }, queues, client);
-    console.log('[sqs docker] sumbundle response:', JSON.stringify(sum));
+    const sum = await invokeAndRead(variant, '/sum', { a: 4, b: 6 }, queues, client);
+    console.log(`[sqs docker] app${variant} sum:`, JSON.stringify(sum));
     assert.equal(sum.sum, 10);
+    console.log(`[sqs docker] CASE echo+${variant}, sum+${variant} PASS`);
   } finally {
     stopLambdaContainer(config);
   }
+}
 
-  console.log('[sqs docker] Dockerfile Lambda startup cases passed');
+async function runDockerCases(queues, client) {
+  buildImage(config);
+  await uploadPackagesForContainer(config);
+
+  await runVariantContainer('full', queues, client);
+  await runVariantContainer('bundle', queues, client);
+
+  console.log('[sqs docker] Dockerfile Lambda startup cases passed (full + bundle containers)');
 }
 
 module.exports = { runDockerCases };

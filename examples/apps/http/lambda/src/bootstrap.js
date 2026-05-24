@@ -6,8 +6,11 @@ const { closeServer, listen } = require('../../../_shared/http');
 const { dynamicOptions } = require('../../../_shared/warehouse');
 const config = require('./config');
 
-function variantOf(event) {
-  return event.variant || process.env.DYNAMIC_VARIANT || 'full';
+// Variant is fixed per function via the DYNAMIC_VARIANT env var (one function =
+// one variant), mirroring real Lambda: real trigger events carry no variant, and
+// each deployed function loads a single packaging variant from its own S3 path.
+function variantOf() {
+  return process.env.DYNAMIC_VARIANT || 'full';
 }
 
 function requestMethod(event) {
@@ -31,7 +34,7 @@ async function handler(event = {}) {
     return { ok: true, app: config.name, mode: config.mode };
   }
 
-  const variant = variantOf(event);
+  const variant = variantOf();
   const engine = new lambda.http.Engine(
     [],
     dynamicOptions(lambda, config, variant, {

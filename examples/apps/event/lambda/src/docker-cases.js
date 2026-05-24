@@ -17,7 +17,6 @@ const enc = (obj) => lambda.protocol.encodePayload(JSON.stringify(obj));
 async function invokeEvent(variant, route) {
   const pkg = `app${variant}`;
   const result = await invokeLambda(config, {
-    variant,
     path: `/api/${pkg}/v1${route}`,
     payload: enc({
       name: 'docker',
@@ -29,19 +28,28 @@ async function invokeEvent(variant, route) {
   console.log(`[event docker] ${route.slice(1)}-${variant} response: null`);
 }
 
-async function runDockerCases() {
-  buildImage(config);
-  await uploadPackagesForContainer(config);
-  startLambdaContainer(config);
+// One container per variant, fixed via DYNAMIC_VARIANT; each loads only its own
+// package path. Events carry no variant.
+async function runVariantContainer(variant) {
+  startLambdaContainer(config, { DYNAMIC_VARIANT: variant });
   try {
     await waitForLambda(config);
-    await invokeEvent('full', '/echo');
-    await invokeEvent('bundle', '/notify');
+    await invokeEvent(variant, '/echo');
+    await invokeEvent(variant, '/notify');
+    console.log(`[event docker] CASE echo+${variant}, notify+${variant} PASS`);
   } finally {
     stopLambdaContainer(config);
   }
+}
 
-  console.log('[event docker] Dockerfile Lambda startup cases passed');
+async function runDockerCases() {
+  buildImage(config);
+  await uploadPackagesForContainer(config);
+
+  await runVariantContainer('full');
+  await runVariantContainer('bundle');
+
+  console.log('[event docker] Dockerfile Lambda startup cases passed (full + bundle containers)');
 }
 
 module.exports = { runDockerCases };

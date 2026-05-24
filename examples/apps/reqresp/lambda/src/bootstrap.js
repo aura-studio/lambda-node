@@ -6,8 +6,10 @@ const config = require('./config');
 
 const engines = new Map();
 
-function variantOf(event) {
-  return event.variant || process.env.DYNAMIC_VARIANT || 'full';
+// Variant is fixed per function via DYNAMIC_VARIANT (one function = one variant),
+// mirroring real Lambda where trigger events carry no variant.
+function variantOf() {
+  return process.env.DYNAMIC_VARIANT || 'full';
 }
 
 function engineFor(variant) {
@@ -29,7 +31,7 @@ async function handler(event = {}) {
   if (event.warmup) {
     return { ok: true, app: config.name, mode: config.mode };
   }
-  return engineFor(variantOf(event)).invoke(event);
+  return engineFor(variantOf()).invoke(event);
 }
 
 module.exports = { handler };
