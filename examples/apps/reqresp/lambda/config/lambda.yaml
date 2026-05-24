@@ -1,21 +1,22 @@
 lambda: reqresp
 
+reqresp:
+  mode:
+    debug: true
+
 dynamic:
-  warehouse:
-    local: /tmp/app-reqresp/warehouse
-    remote: s3://lambda-node-app-reqresp
+  environment:
+    toolchain:
+      os: linux
+      arch: amd64
+      compiler: node
+      variant: full
+    warehouse:
+      local: /tmp/app-reqresp/warehouse
+      remote: s3://lambda-node-app-reqresp
   package:
     namespace: app
     defaultVersion: v1
-  toolchain:
-    os: linux
-    arch: amd64
-    compiler: node
-    variant: full
-
-reqresp:
-  routes:
-    - /api/app-full/v1/echo
-    - /api/app-full/v1/sum
-    - /api/app-bundle/v1/echo
-    - /api/app-bundle/v1/sum
+    preload:
+      - package: app-full
+        version: v1

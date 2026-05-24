@@ -15,6 +15,8 @@ module.exports = {
   lambdaDir,
   apiDir,
   appDir: lambdaDir,
+  lambdaConfig: path.join(lambdaDir, 'config', 'lambda.yaml'),
+  dynamicCliConfig: path.join(apiDir, 'dynamic-cli.yaml'),
   container: 'lambda-node-app-reqresp',
   image: process.env.LOCALSTACK_IMAGE || 'localstack/localstack:3',
   port: Number(process.env.LOCALSTACK_PORT || 14567),

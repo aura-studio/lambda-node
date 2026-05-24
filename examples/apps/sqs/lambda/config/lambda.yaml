@@ -1,25 +1,24 @@
 lambda: sqs
 
+sqs:
+  mode:
+    debug: true
+    run: partial
+    reply: true
+
 dynamic:
-  warehouse:
-    local: /tmp/app-sqs/warehouse
-    remote: s3://lambda-node-app-sqs
+  environment:
+    toolchain:
+      os: linux
+      arch: amd64
+      compiler: node
+      variant: full
+    warehouse:
+      local: /tmp/app-sqs/warehouse
+      remote: s3://lambda-node-app-sqs
   package:
     namespace: app
     defaultVersion: v1
-  toolchain:
-    os: linux
-    arch: amd64
-    compiler: node
-    variant: full
-
-sqs:
-  runMode: partial
-  reply: true
-  requestQueue: lambda-node-app-sqs-request
-  responseQueue: lambda-node-app-sqs-response
-  routes:
-    - /api/app-full/v1/echo
-    - /api/app-full/v1/sum
-    - /api/app-bundle/v1/echo
-    - /api/app-bundle/v1/sum
+    preload:
+      - package: app-full
+        version: v1

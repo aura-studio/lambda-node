@@ -1,0 +1,63 @@
+environments:
+  - name: node-full
+    toolchain:
+      os: linux
+      arch: amd64
+      compiler: node
+      variant: full
+    warehouse:
+      local: ../lambda/.tmp/warehouse
+      remote:
+        - s3://lambda-node-app-http
+  - name: node-bundle
+    toolchain:
+      os: linux
+      arch: amd64
+      compiler: node
+      variant: bundle
+    warehouse:
+      local: ../lambda/.tmp/warehouse
+      remote:
+        - s3://lambda-node-app-http
+
+procedures:
+  - name: api-full
+    environment: node-full
+    source:
+      module: .
+      package: packages/api-full
+      version: v1
+    target:
+      namespace: app
+      package: api-full
+      version: v1
+  - name: wapi-full
+    environment: node-full
+    source:
+      module: .
+      package: packages/wapi-full
+      version: v1
+    target:
+      namespace: app
+      package: wapi-full
+      version: v1
+  - name: api-bundle
+    environment: node-bundle
+    source:
+      module: .
+      package: packages/api-bundle
+      version: v1
+    target:
+      namespace: app
+      package: api-bundle
+      version: v1
+  - name: wapi-bundle
+    environment: node-bundle
+    source:
+      module: .
+      package: packages/wapi-bundle
+      version: v1
+    target:
+      namespace: app
+      package: wapi-bundle
+      version: v1

@@ -1,24 +1,26 @@
 lambda: http
 
+http:
+  address: ":8080"
+  mode:
+    debug: true
+    cors: true
+
 dynamic:
-  warehouse:
-    local: /tmp/app-http/warehouse
-    remote: s3://lambda-node-app-http
+  environment:
+    toolchain:
+      os: linux
+      arch: amd64
+      compiler: node
+      variant: full
+    warehouse:
+      local: /tmp/app-http/warehouse
+      remote: s3://lambda-node-app-http
   package:
     namespace: app
     defaultVersion: v1
-  toolchain:
-    os: linux
-    arch: amd64
-    compiler: node
-    variant: full
-
-http:
-  address: ":8080"
-  routes:
-    api:
-      - /api/api-full/v1/echo
-      - /api/api-bundle/v1/echo
-    wapi:
-      - /wapi/wapi-full/v1/hello
-      - /wapi/wapi-bundle/v1/hello
+    preload:
+      - package: api-full
+        version: v1
+      - package: wapi-full
+        version: v1

@@ -12,7 +12,7 @@ This directory contains four independent app projects, one for each lambda-node 
 Each project is split like the production `scp-lambda` / `scp-api` shape:
 
 - `lambda/` is the Lambda host project. It owns `package.json`, `node_modules`, Dockerfile, SAM template, runtime config, bootstrap code, and the executable tests.
-- `api/` is the dynamic package project. It owns the package module version plus the `packages/` tree that is built and uploaded to S3.
+- `api/` is the dynamic package project. It owns `dynamic-cli.yaml`, the module version, and the `packages/` tree that is built and uploaded to S3.
 
 The dynamically loaded packages intentionally do not hand-write the Tunnel interface:
 
@@ -30,10 +30,11 @@ Each app uses the same structure:
 ```text
 examples/apps/<app>/
   api/
+    dynamic-cli.yaml      # Go dynamic-cli-compatible build/push config
     package.json          # module/version source for dynamic-node-cli build meta
     packages/             # service-node / wire-node packages uploaded to LocalStack S3
   lambda/
-    config/lambda.yaml    # Lambda/dynamic config shape for the container example
+    config/lambda.yaml    # Go server.yml-compatible Lambda/dynamic config
     Dockerfile            # AWS Lambda container image
     template.yaml         # SAM image template
     events/               # SAM/local invoke sample events
@@ -45,6 +46,16 @@ examples/apps/<app>/
 ```
 
 The shared helper code lives in `examples/apps/_shared/` so the app examples stay small while still showing the moving parts clearly.
+
+`lambda/config/lambda.yaml` intentionally follows the Go `lambda/server.yml`
+shape: top-level `lambda`, mode-specific `http` / `reqresp` / `sqs` / `event`,
+and `dynamic.environment` plus `dynamic.package`. Example-only values such as
+queue names, local ports, and test case routes stay in `lambda/src/config.js`
+instead of being added to `lambda.yaml`.
+
+`api/dynamic-cli.yaml` follows the Go `dynamic-cli.yaml` shape and uses
+`procedures` to describe each full or bundle package. The Node CLI accepts this
+file name directly, so manual build commands can be run from the `api/` project.
 
 ## Local engine flow
 
@@ -81,6 +92,18 @@ The Docker flow adds these steps after the local engine cases:
 
 The Docker image talks back to LocalStack through `host.docker.internal:<LocalStack port>`.
 The Docker build context is the `aura-studio` workspace root so the image can use the sibling local packages `dynamic-node`, `service-node`, `wire-node`, and `tunnel-node` instead of pulling them from GitHub.
+
+## Dynamic Package Flow
+
+```bash
+cd examples/apps/http/api
+dynamic-node build -c dynamic-cli.yaml
+dynamic-node push -c dynamic-cli.yaml
+```
+
+The automated example tests invoke the same dynamic-node-cli Builder directly
+so they can inject the local warehouse path and LocalStack S3 endpoint, but the
+checked-in `dynamic-cli.yaml` is kept in sync and validated on every app test.
 
 ## SAM files
 

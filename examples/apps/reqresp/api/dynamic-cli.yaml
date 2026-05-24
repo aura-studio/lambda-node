@@ -1,0 +1,43 @@
+environments:
+  - name: node-full
+    toolchain:
+      os: linux
+      arch: amd64
+      compiler: node
+      variant: full
+    warehouse:
+      local: ../lambda/.tmp/warehouse
+      remote:
+        - s3://lambda-node-app-reqresp
+  - name: node-bundle
+    toolchain:
+      os: linux
+      arch: amd64
+      compiler: node
+      variant: bundle
+    warehouse:
+      local: ../lambda/.tmp/warehouse
+      remote:
+        - s3://lambda-node-app-reqresp
+
+procedures:
+  - name: app-full
+    environment: node-full
+    source:
+      module: .
+      package: packages/app-full
+      version: v1
+    target:
+      namespace: app
+      package: app-full
+      version: v1
+  - name: app-bundle
+    environment: node-bundle
+    source:
+      module: .
+      package: packages/app-bundle
+      version: v1
+    target:
+      namespace: app
+      package: app-bundle
+      version: v1
