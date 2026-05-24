@@ -13,7 +13,6 @@ const yaml = require('js-yaml');
  *   package:
  *     namespace: string
  *     defaultVersion: string
- *     basePath: string
  *     preload: [{ package, version }]
  *
  * @param {string|Buffer} yamlContent
@@ -36,7 +35,6 @@ function optionFromConfig(yamlContent) {
     if (warehouse.remote) o.remoteWarehouse = warehouse.remote;
     if (pkg.namespace) o.packageNamespace = pkg.namespace;
     if (pkg.defaultVersion) o.packageDefaultVersion = pkg.defaultVersion;
-    if (pkg.basePath) o.basePath = pkg.basePath;
 
     for (const p of preload) {
       if (!p.package) continue;

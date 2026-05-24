@@ -1,0 +1,6 @@
+{
+  "name": "@sqs-app/app-full",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js"
+}

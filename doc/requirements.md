@@ -87,18 +87,14 @@ environment:
 package:
   namespace: aura
   defaultVersion: v1
-  basePath: ./packages       # package 路径的相对基础路径（新增）
   preload:
     - package: example
       version: v1
 ```
 
-**新增字段** `basePath`：设置 package 加载的相对基础路径。所有 package 内部的文件读取路径都相对于此路径解析。
-
 **核心逻辑**：
-1. `InstallPackages()`：根据配置设置 toolchain、warehouse、namespace、defaultVersion、basePath
+1. `InstallPackages()`：根据配置设置 toolchain、warehouse、namespace、defaultVersion
 2. `GetPackage(pkg, version)`：从本地/远程仓库获取 package，返回一个可调用的 handler 函数 `(req, res) => void`
-3. Package 内部通过 `require` 或 `import` 加载文件时，路径会基于 `basePath` 解析
 
 **GetPackage 流程**：
 ```
@@ -112,7 +108,6 @@ URL: /{package}/{version}/{route...}
 **与 Go 版本的关键区别**：
 - Go 版本：package 是编译好的 `.so` 动态链接库，通过 tunnel 协议调用
 - Node.js 版本：package 是 npm 包或本地模块，通过 `require()` 或 `import()` 加载，导出 `(req, res) => void` 函数
-- 需要通过 `basePath` 处理 package 内部文件读取的相对路径
 
 ### 3.2 请求/响应信封
 
@@ -261,7 +256,6 @@ dynamic:
   package:
     namespace: aura
     defaultVersion: v1
-    basePath: ./packages
     preload:
       - package: example
         version: v1
@@ -299,15 +293,7 @@ function WithDebugMode(): Option {
 - 默认导出一个函数：`export default function handler(req: ReqEnvelope, res: ResEnvelope): void`
 - 可选导出一个 `meta()` 方法用于服务元数据
 
-### 5.2 相对路径处理
-
-**basePath 的作用**：
-- 配置 `dynamic.package.basePath` 指定 package 目录的基础路径
-- Package 内部通过 `require` 或文件读取操作时，相对路径基于 `basePath` 解析
-- 例如：`basePath: ./packages`，package `example@v1` 位于 `./packages/example/v1/`
-- Package 内部 `require('./utils')` 实际解析为 `./packages/example/v1/utils`
-
-### 5.3 远程仓库
+### 5.2 远程仓库
 
 支持从远程仓库（如 S3）下载 package：
 - 首次调用时从远程仓库下载并缓存在本地
@@ -403,7 +389,6 @@ serve({
   dynamic: {
     packageNamespace: 'aura',
     packageDefaultVersion: 'v1',
-    basePath: './packages',
   },
 });
 ```
@@ -435,7 +420,6 @@ serve({
 ## 13. 待确认事项
 
 1. `dynamic-node` 的具体 API 设计（package 下载、缓存、版本管理机制）
-2. `basePath` 相对路径解析的完整策略（是否影响 `require` 行为、如何处理符号链接）
-3. 是否需要支持 CommonJS 和 ESM 双模块格式
-4. 单元测试和集成测试的范围和覆盖率目标
-5. 是否需要 CLI 工具（如 `lambda-node init`）
+2. 是否需要支持 CommonJS 和 ESM 双模块格式
+3. 单元测试和集成测试的范围和覆盖率目标
+4. 是否需要 CLI 工具（如 `lambda-node init`）

@@ -1,0 +1,7 @@
+{
+  "name": "@lambda-node-e2e/wapi-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "description": "WAPI-mode (native HTTP handler) e2e package loaded from LocalStack S3"
+}

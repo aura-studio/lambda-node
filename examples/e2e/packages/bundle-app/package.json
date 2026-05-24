@@ -1,0 +1,7 @@
+{
+  "name": "@lambda-node-e2e/bundle-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "bundle.js",
+  "description": "Bundle-variant e2e package (single self-contained bundle.js) loaded from LocalStack S3"
+}

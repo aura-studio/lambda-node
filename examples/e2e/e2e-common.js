@@ -4,6 +4,14 @@
 // into a libnode_<name>.zip, upload it to LocalStack S3, then drive each
 // lambda-node mode so dynamic-node downloads + loads the package from S3 and the
 // engine invokes it. SQS additionally round-trips a reply through LocalStack SQS.
+//
+// Coverage matrix:
+//   http    -> HTTP /api (envelope)            variant=generic (index.js)
+//   wapi    -> HTTP /wapi (native handler)     variant=generic (index.js)
+//   reqresp -> Lambda RequestResponse          variant=generic (index.js)
+//   sqs     -> SQS + reply queue               variant=generic (index.js)
+//   event   -> Lambda Event (fire-and-forget)  variant=generic (index.js)
+//   bundle  -> HTTP /api via single bundle.js  variant=bundle  (bundle.js)
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -11,11 +19,7 @@ const http = require('node:http');
 
 const AdmZip = require('adm-zip');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
-const {
-  SendMessageCommand,
-  ReceiveMessageCommand,
-  DeleteMessageCommand,
-} = require('@aws-sdk/client-sqs');
+const { ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
 
 const {
   lambda,
@@ -33,8 +37,18 @@ const ls = require('./localstack');
 const BUCKET = 'lambda-node-e2e';
 const NAMESPACE = 'e2e';
 const VERSION = 'v1';
-const TOOLCHAIN = { os: 'linux', arch: 'amd64', compiler: 'node', variant: 'generic' };
-const TOOLCHAIN_STR = `${TOOLCHAIN.os}_${TOOLCHAIN.arch}_${TOOLCHAIN.compiler}_${TOOLCHAIN.variant}`;
+const BASE_TOOLCHAIN = { os: 'linux', arch: 'amd64', compiler: 'node' };
+
+// Per-mode package spec: which directory, which toolchain variant, and whether
+// the zip carries a single bundle.js (variant=bundle) or index.js + adapter.
+const PACKAGES = {
+  http: { dir: 'http-app', variant: 'generic', bundle: false },
+  wapi: { dir: 'wapi-app', variant: 'generic', bundle: false },
+  reqresp: { dir: 'reqresp-app', variant: 'generic', bundle: false },
+  sqs: { dir: 'sqs-app', variant: 'generic', bundle: false },
+  event: { dir: 'event-app', variant: 'generic', bundle: false },
+  bundle: { dir: 'bundle-app', variant: 'bundle', bundle: true },
+};
 
 const E2E_DIR = __dirname;
 const EXAMPLES_DIR = path.dirname(E2E_DIR);
@@ -45,8 +59,16 @@ const WAREHOUSE_DIR = path.join(TMP_DIR, 'e2e-warehouse');
 const REQUEST_QUEUE = 'lambda-node-e2e-request';
 const RESPONSE_QUEUE = 'lambda-node-e2e-response';
 
+const ALL_MODES = Object.keys(PACKAGES);
+
+function spec(mode) {
+  const s = PACKAGES[mode];
+  if (!s) throw new Error(`unknown e2e mode: ${mode}`);
+  return s;
+}
+
 function pkgName(mode) {
-  return `${mode}-app`;
+  return spec(mode).dir; // e.g. "http-app"
 }
 
 // dynamic-node addresses warehouse entries by "<namespace>_<package>_<version>".
@@ -54,18 +76,28 @@ function dynName(mode) {
   return `${NAMESPACE}_${pkgName(mode)}_${VERSION}`;
 }
 
+function toolchainStrFor(mode) {
+  const { os, arch, compiler } = BASE_TOOLCHAIN;
+  return `${os}_${arch}_${compiler}_${spec(mode).variant}`;
+}
+
 function s3KeyFor(mode) {
   const name = dynName(mode);
-  return `${TOOLCHAIN_STR}/${name}/libnode_${name}.zip`;
+  return `${toolchainStrFor(mode)}/${name}/libnode_${name}.zip`;
 }
 
 function buildZip(mode) {
   const dir = path.join(PACKAGES_DIR, pkgName(mode));
   const zip = new AdmZip();
-  zip.addLocalFile(path.join(dir, 'index.js'));
-  zip.addLocalFile(path.join(dir, 'package.json'));
-  // Bundle the shared envelope-tunnel adapter so the package zip is self-contained.
-  zip.addLocalFile(path.join(PACKAGES_DIR, '_shared', 'tunnel-adapter.js'));
+  if (spec(mode).bundle) {
+    // variant=bundle: dynamic-node loads bundle.js directly.
+    zip.addLocalFile(path.join(dir, 'bundle.js'));
+  } else {
+    zip.addLocalFile(path.join(dir, 'index.js'));
+    zip.addLocalFile(path.join(dir, 'package.json'));
+    // Bundle the shared envelope/native tunnel adapter so the zip is self-contained.
+    zip.addLocalFile(path.join(PACKAGES_DIR, '_shared', 'tunnel-adapter.js'));
+  }
   return zip.toBuffer();
 }
 
@@ -78,18 +110,18 @@ async function uploadPackage(mode) {
 }
 
 function clearLocalPackage(mode) {
-  const dir = path.join(WAREHOUSE_DIR, TOOLCHAIN_STR, dynName(mode));
+  const dir = path.join(WAREHOUSE_DIR, toolchainStrFor(mode), dynName(mode));
   fs.rmSync(dir, { recursive: true, force: true });
   console.log(`[e2e] cleared local cache: ${dir}`);
 }
 
-function dynamicOptions() {
+function dynamicOptions(mode) {
   fs.mkdirSync(WAREHOUSE_DIR, { recursive: true });
   return [
-    lambda.dynamic.withOs(TOOLCHAIN.os),
-    lambda.dynamic.withArch(TOOLCHAIN.arch),
-    lambda.dynamic.withCompiler(TOOLCHAIN.compiler),
-    lambda.dynamic.withVariant(TOOLCHAIN.variant),
+    lambda.dynamic.withOs(BASE_TOOLCHAIN.os),
+    lambda.dynamic.withArch(BASE_TOOLCHAIN.arch),
+    lambda.dynamic.withCompiler(BASE_TOOLCHAIN.compiler),
+    lambda.dynamic.withVariant(spec(mode).variant),
     lambda.dynamic.withLocalWarehouse(WAREHOUSE_DIR),
     lambda.dynamic.withRemoteWarehouse(`s3://${BUCKET}`),
     lambda.dynamic.withPackageNamespace(NAMESPACE),
@@ -112,7 +144,7 @@ async function runHttpE2E() {
   await ensureReady(['http']);
   clearLocalPackage('http');
 
-  const engine = new lambda.http.Engine([], dynamicOptions());
+  const engine = new lambda.http.Engine([], dynamicOptions('http'));
   const server = http.createServer(engine.app);
   const baseUrl = await listen(server);
   try {
@@ -131,14 +163,39 @@ async function runHttpE2E() {
   } finally {
     await closeServer(server);
   }
-  ok('HTTP e2e via LocalStack S3 passed');
+  ok('HTTP /api e2e via LocalStack S3 passed');
+}
+
+async function runWapiE2E() {
+  await ensureReady(['wapi']);
+  clearLocalPackage('wapi');
+
+  const engine = new lambda.http.Engine([], dynamicOptions('wapi'));
+  const server = http.createServer(engine.app);
+  const baseUrl = await listen(server);
+  try {
+    console.log('[e2e] POST /wapi/wapi-app/v1/hello (native HTTP handler from S3)');
+    const res = await fetchText(`${baseUrl}/wapi/wapi-app/v1/hello?x=1`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: 'wire-body',
+    });
+    assert.equal(res.response.status, 200);
+    const body = JSON.parse(res.text);
+    assert.equal(body.handler, 'wapi-app');
+    assert.equal(body.url, '/hello?x=1');     // inner route + query, package-visible
+    assert.equal(body.body, 'wire-body');     // raw request stream reached the package
+  } finally {
+    await closeServer(server);
+  }
+  ok('HTTP /wapi e2e via LocalStack S3 (native HTTP handler) passed');
 }
 
 async function runReqRespE2E() {
   await ensureReady(['reqresp']);
   clearLocalPackage('reqresp');
 
-  const engine = new lambda.reqresp.Engine([], dynamicOptions());
+  const engine = new lambda.reqresp.Engine([], dynamicOptions('reqresp'));
   console.log('[e2e] reqresp invoke /api/reqresp-app/v1/echo (triggers S3 download + load)');
   const response = await engine.invoke({
     path: '/api/reqresp-app/v1/echo',
@@ -166,7 +223,7 @@ async function runSqsE2E() {
       lambda.sqs.withReplyMode(true),
       lambda.sqs.withSQSClient(sqs),
     ],
-    dynamicOptions(),
+    dynamicOptions('sqs'),
   );
 
   console.log('[e2e] sqs invoke /api/sqs-app/v1/process (triggers S3 download + load + SQS reply)');
@@ -203,7 +260,7 @@ async function runEventE2E() {
   fs.mkdirSync(TMP_DIR, { recursive: true });
   const marker = path.join(TMP_DIR, `event-marker-${Date.now()}.txt`);
 
-  const engine = new lambda.event.Engine([], dynamicOptions());
+  const engine = new lambda.event.Engine([], dynamicOptions('event'));
   console.log('[e2e] event invoke /api/event-app/v1/notify (triggers S3 download + load)');
   const response = await engine.invoke({
     path: '/api/event-app/v1/notify',
@@ -216,6 +273,30 @@ async function runEventE2E() {
   assert.match(content, /event:localstack/);
   fs.rmSync(marker, { force: true });
   ok('Event e2e via LocalStack S3 passed');
+}
+
+async function runBundleE2E() {
+  await ensureReady(['bundle']);
+  clearLocalPackage('bundle');
+
+  const engine = new lambda.http.Engine([], dynamicOptions('bundle'));
+  const server = http.createServer(engine.app);
+  const baseUrl = await listen(server);
+  try {
+    console.log('[e2e] POST /api/bundle-app/v1/echo (variant=bundle -> loads bundle.js from S3)');
+    const echo = await fetchText(`${baseUrl}/api/bundle-app/v1/echo`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'localstack' }),
+    });
+    assert.equal(echo.response.status, 200);
+    const body = JSON.parse(echo.text);
+    assert.equal(body.message, 'hello localstack from bundle e2e');
+    assert.equal(body.variant, 'bundle');
+  } finally {
+    await closeServer(server);
+  }
+  ok('Bundle-variant e2e via LocalStack S3 (bundle.js load path) passed');
 }
 
 async function receiveOne(sqs, queueUrl, timeoutMs = 15000) {
@@ -260,13 +341,14 @@ module.exports = {
   BUCKET,
   NAMESPACE,
   VERSION,
-  TOOLCHAIN,
-  TOOLCHAIN_STR,
+  BASE_TOOLCHAIN,
   WAREHOUSE_DIR,
   REQUEST_QUEUE,
   RESPONSE_QUEUE,
+  ALL_MODES,
   pkgName,
   dynName,
+  toolchainStrFor,
   s3KeyFor,
   buildZip,
   uploadPackage,
@@ -274,8 +356,10 @@ module.exports = {
   dynamicOptions,
   ensureReady,
   runHttpE2E,
+  runWapiE2E,
   runReqRespE2E,
   runSqsE2E,
   runEventE2E,
+  runBundleE2E,
   cleanWorkspace,
 };

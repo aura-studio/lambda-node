@@ -12,7 +12,6 @@ const defaultOptions = {
   remoteWarehouse: '',
   packageNamespace: '',
   packageDefaultVersion: '',
-  basePath: '',
   staticPackages: [],
   preloadPackages: [],
 };
@@ -65,10 +64,6 @@ function withPackageDefaultVersion(packageDefaultVersion) {
   return (o) => { o.packageDefaultVersion = packageDefaultVersion; };
 }
 
-function withBasePath(basePath) {
-  return (o) => { o.basePath = basePath; };
-}
-
 function withStaticPackage(pkg) {
   return (o) => { o.staticPackages.push(pkg); };
 }
@@ -88,7 +83,6 @@ module.exports = {
   withRemoteWarehouse,
   withPackageNamespace,
   withPackageDefaultVersion,
-  withBasePath,
   withStaticPackage,
   withPreloadPackage,
 };

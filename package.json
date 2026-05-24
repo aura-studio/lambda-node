@@ -20,10 +20,12 @@
     "e2e": "node examples/scripts/98-run-all-e2e.js",
     "e2e:up": "node examples/scripts/10-localstack-up.js",
     "e2e:http": "node examples/scripts/11-e2e-http.js",
-    "e2e:reqresp": "node examples/scripts/12-e2e-reqresp.js",
-    "e2e:sqs": "node examples/scripts/13-e2e-sqs.js",
-    "e2e:event": "node examples/scripts/14-e2e-event.js",
-    "e2e:down": "node examples/scripts/15-localstack-down.js"
+    "e2e:wapi": "node examples/scripts/12-e2e-http-wapi.js",
+    "e2e:reqresp": "node examples/scripts/13-e2e-reqresp.js",
+    "e2e:sqs": "node examples/scripts/14-e2e-sqs.js",
+    "e2e:event": "node examples/scripts/15-e2e-event.js",
+    "e2e:bundle": "node examples/scripts/16-e2e-bundle.js",
+    "e2e:down": "node examples/scripts/17-localstack-down.js"
   },
   "keywords": [
     "lambda",

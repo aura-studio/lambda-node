@@ -43,4 +43,39 @@ function makeTunnel(handler, metaFn) {
   };
 }
 
-module.exports = { makeTunnel };
+// makeHttpTunnel wraps a native Express-style handler (req, res, next) so it can
+// be loaded from the warehouse as a Tunnel and driven through lambda-node's
+// /wapi path. lambda-node calls invoke(route, { req, res, next }); we detect the
+// HTTP exchange and run the native handler directly against the live res.
+function makeHttpTunnel(nativeHandler, metaFn) {
+  return {
+    async init() {},
+    async close() {},
+    async invoke(route, request) {
+      const isHttp =
+        request &&
+        typeof request === 'object' &&
+        (request.req || request.request) &&
+        (request.res || request.response);
+      if (!isHttp) return '';
+
+      const req = request.req || request.request;
+      const res = request.res || request.response;
+      const next = typeof request.next === 'function' ? request.next : undefined;
+      const result = nativeHandler(req, res, next);
+      if (result && typeof result.then === 'function') await result;
+      return result === undefined ? res : result;
+    },
+    async meta() {
+      if (!metaFn) return '';
+      try {
+        const result = await metaFn();
+        return typeof result === 'string' ? result : JSON.stringify(result);
+      } catch (_) {
+        return '';
+      }
+    },
+  };
+}
+
+module.exports = { makeTunnel, makeHttpTunnel };

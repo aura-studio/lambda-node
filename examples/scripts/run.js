@@ -84,7 +84,6 @@ async function stepSmoke() {
     "withRemoteWarehouse",
     "withPackageNamespace",
     "withPackageDefaultVersion",
-    "withBasePath",
     "withStaticPackage",
     "withPreloadPackage",
     "optionFromConfig",
