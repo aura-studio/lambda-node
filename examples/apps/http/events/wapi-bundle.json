@@ -1,0 +1,17 @@
+{
+  "variant": "bundle",
+  "version": "2.0",
+  "rawPath": "/wapi/wapi-bundle/v1/hello",
+  "rawQueryString": "x=1",
+  "headers": {
+    "content-type": "text/plain"
+  },
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/wapi/wapi-bundle/v1/hello"
+    }
+  },
+  "body": "wire-sam",
+  "isBase64Encoded": false
+}

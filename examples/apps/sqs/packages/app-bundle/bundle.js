@@ -1,42 +1,26 @@
 'use strict';
 
-// SQS api-mode package, "bundle" variant (single self-contained bundle.js).
-// Envelope handler supporting two routes (/echo, /sum), wrapped inline.
+const service = require('@aura-studio/service-node');
 
-function handler(req, res) {
-  const route = (req.meta && (req.meta.route || req.meta.Path)) || '';
-  const text = Buffer.from(req.data || '', 'base64').toString('utf8');
-  let p = {};
-  try { p = text ? JSON.parse(text) : {}; } catch (_) { p = { message: text }; }
-
-  let result;
-  if (route === '/sum') {
-    result = { op: 'sum', sum: (Number(p.a) || 0) + (Number(p.b) || 0), variant: 'bundle' };
-  } else {
-    result = { op: 'echo', message: `processed ${p.name || 'world'} via sqs api (bundle)`, variant: 'bundle', route };
-  }
-
-  res.meta = { handler: 'app-bundle', route, variant: 'bundle' };
-  res.data = Buffer.from(JSON.stringify(result)).toString('base64');
-}
-
-function meta() {
-  return { name: 'app-bundle', mode: 'api', variant: 'bundle', routes: ['/echo', '/sum'] };
-}
-
-module.exports = {
-  async init() {},
-  async close() {},
-  async invoke(route, request) {
-    let r;
-    try { r = JSON.parse(request); } catch (_) { r = { meta: {}, data: '' }; }
-    if (!r || typeof r !== 'object') r = { meta: {}, data: '' };
-    if (!r.meta || typeof r.meta !== 'object') r.meta = {};
-    r.meta.route = route;
-    if (r.meta.Path == null || r.meta.Path === '') r.meta.Path = route;
-    const res = { meta: {}, data: '' };
-    try { await handler(r, res); } catch (e) { res.meta.Error = e && e.message ? e.message : String(e); }
-    return JSON.stringify(res);
+const app = {
+  echo(ctx, payload) {
+    ctx.setResponseMeta('handler', 'app-bundle');
+    ctx.setResponseMeta('variant', 'bundle');
+    return {
+      op: 'echo',
+      message: `processed ${payload.name || 'world'} via sqs api (bundle)`,
+      variant: 'bundle',
+      route: ctx.route,
+    };
   },
-  async meta() { return JSON.stringify(meta()); },
+
+  sum(_ctx, payload) {
+    return {
+      op: 'sum',
+      sum: (Number(payload.a) || 0) + (Number(payload.b) || 0),
+      variant: 'bundle',
+    };
+  },
 };
+
+module.exports = service.new(app);

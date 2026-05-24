@@ -1,0 +1,5 @@
+{
+  "variant": "bundle",
+  "path": "/api/app-bundle/v1/notify",
+  "payload": "eyJuYW1lIjoic2FtIiwibWFya2VyRmlsZSI6Ii90bXAvYXBwLWV2ZW50LW5vdGlmeS1idW5kbGUudHh0In0="
+}

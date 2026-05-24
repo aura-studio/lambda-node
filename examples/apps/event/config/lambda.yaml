@@ -1,0 +1,21 @@
+lambda: event
+
+dynamic:
+  warehouse:
+    local: /tmp/app-event/warehouse
+    remote: s3://lambda-node-app-event
+  package:
+    namespace: app
+    defaultVersion: v1
+  toolchain:
+    os: linux
+    arch: amd64
+    compiler: node
+    variant: full
+
+event:
+  routes:
+    - /api/app-full/v1/echo
+    - /api/app-full/v1/notify
+    - /api/app-bundle/v1/echo
+    - /api/app-bundle/v1/notify

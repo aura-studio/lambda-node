@@ -1,0 +1,9 @@
+{
+  "variant": "bundle",
+  "Records": [
+    {
+      "messageId": "sam-sum-bundle",
+      "body": "{\"request_sqs_id\":\"http://host.docker.internal:14568/000000000000/lambda-node-app-sqs-request\",\"response_sqs_id\":\"http://host.docker.internal:14568/000000000000/lambda-node-app-sqs-response\",\"correlation_id\":\"sam-sum-bundle\",\"path\":\"/api/app-bundle/v1/sum\",\"payload\":\"eyJhIjo0LCJiIjo2fQ==\"}"
+    }
+  ]
+}

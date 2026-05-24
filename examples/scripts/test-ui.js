@@ -33,6 +33,10 @@ const steps = [
   ["21-app-reqresp", "ReqResp app: 2 routes × full+bundle (4 cases)", "Standalone apps (npm install + Docker)"],
   ["22-app-sqs", "SQS app: 2 routes × full+bundle, SQS reply (4 cases)", "Standalone apps (npm install + Docker)"],
   ["23-app-event", "Event app: 2 routes × full+bundle, marker (4 cases)", "Standalone apps (npm install + Docker)"],
+  ["24-app-http-docker", "HTTP app: build Dockerfile Lambda and invoke api+wapi", "Standalone apps (Dockerfile Lambda)"],
+  ["25-app-reqresp-docker", "ReqResp app: build Dockerfile Lambda and invoke 2 routes", "Standalone apps (Dockerfile Lambda)"],
+  ["26-app-sqs-docker", "SQS app: build Dockerfile Lambda and verify reply queue", "Standalone apps (Dockerfile Lambda)"],
+  ["27-app-event-docker", "Event app: build Dockerfile Lambda and fire events", "Standalone apps (Dockerfile Lambda)"],
 ];
 
 const clients = new Map();

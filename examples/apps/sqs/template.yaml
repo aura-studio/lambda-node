@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: lambda-node SQS app example packaged as an AWS Lambda container image.
+
+Resources:
+  SqsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          AWS_ENDPOINT_URL: http://host.docker.internal:14568
+          AWS_ENDPOINT_URL_S3: http://host.docker.internal:14568
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_S3_FORCE_PATH_STYLE: 'true'
+          LAMBDA_NODE_CONFIG: /var/task/examples/apps/sqs/config/lambda.yaml
+          LAMBDA_NODE_WAREHOUSE: /tmp/app-sqs/warehouse
+          NODE_PATH: /var/task/examples/apps/sqs/node_modules
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-east-1:000000000000:lambda-node-app-sqs-request
+            BatchSize: 1
+    Metadata:
+      DockerContext: ../../../..
+      Dockerfile: lambda-node/examples/apps/sqs/Dockerfile

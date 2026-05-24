@@ -1,0 +1,9 @@
+{
+  "variant": "full",
+  "Records": [
+    {
+      "messageId": "sam-echo-full",
+      "body": "{\"request_sqs_id\":\"http://host.docker.internal:14568/000000000000/lambda-node-app-sqs-request\",\"response_sqs_id\":\"http://host.docker.internal:14568/000000000000/lambda-node-app-sqs-response\",\"correlation_id\":\"sam-echo-full\",\"path\":\"/api/app-full/v1/echo\",\"payload\":\"eyJuYW1lIjoic2FtIn0=\"}"
+    }
+  ]
+}

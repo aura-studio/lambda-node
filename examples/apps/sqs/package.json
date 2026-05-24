@@ -4,10 +4,13 @@
   "private": true,
   "description": "Standalone SQS-mode lambda-node example (api x full + bundle, 2 routes) with LocalStack S3 + SQS reply queue",
   "scripts": {
-    "test": "node test.js"
+    "test": "node test.js",
+    "test:docker": "node test.js --docker-lambda"
   },
   "dependencies": {
     "@aura-studio/lambda-node": "file:../../..",
+    "@aura-studio/service-node": "file:../../../../service-node",
+    "@aura-studio/tunnel-node": "file:../../../../tunnel-node",
     "@aws-sdk/client-s3": "^3.700.0",
     "@aws-sdk/client-sqs": "^3.700.0",
     "adm-zip": "^0.5.16"

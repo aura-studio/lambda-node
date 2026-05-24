@@ -2,5 +2,8 @@
   "name": "@http-app/wapi-full",
   "version": "1.0.0",
   "private": true,
-  "main": "index.js"
+  "main": "index.js",
+  "dependencies": {
+    "@aura-studio/wire-node": "file:../../../../../../wire-node"
+  }
 }

@@ -1,0 +1,25 @@
+lambda: sqs
+
+dynamic:
+  warehouse:
+    local: /tmp/app-sqs/warehouse
+    remote: s3://lambda-node-app-sqs
+  package:
+    namespace: app
+    defaultVersion: v1
+  toolchain:
+    os: linux
+    arch: amd64
+    compiler: node
+    variant: full
+
+sqs:
+  runMode: partial
+  reply: true
+  requestQueue: lambda-node-app-sqs-request
+  responseQueue: lambda-node-app-sqs-response
+  routes:
+    - /api/app-full/v1/echo
+    - /api/app-full/v1/sum
+    - /api/app-bundle/v1/echo
+    - /api/app-bundle/v1/sum

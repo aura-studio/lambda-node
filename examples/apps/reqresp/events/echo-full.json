@@ -1,0 +1,5 @@
+{
+  "variant": "full",
+  "path": "/api/app-full/v1/echo",
+  "payload": "eyJuYW1lIjoic2FtIn0="
+}

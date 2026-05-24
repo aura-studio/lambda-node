@@ -1,44 +1,88 @@
 # lambda-node standalone example apps
 
-Four **independent** example projects — one per Lambda type. Each project:
+This directory contains four independent app projects, one for each lambda-node mode:
 
-- is fully self-contained: its own `package.json`, its own `node_modules`
-  (`npm install` separately), its own `test.js`. No code is shared between
-  projects and they do not import each other.
-- owns its LocalStack lifecycle (distinct container name, port and bucket), so
-  the projects never collide and can even run in parallel.
-- builds its packages in **both** dynamic-node variants (**full** = `index.js`
-  dir, **bundle** = single `bundle.js`), uploads them to **LocalStack S3**, then
-  has `dynamic-node` download + load them at runtime and invokes through the
-  matching `lambda-node` engine.
+| Project | Mode | LocalStack port | Local Lambda port | Cases |
+| --- | --- | ---: | ---: | --- |
+| `http/` | HTTP | 14566 | 19066 | `api+wapi x full+bundle` |
+| `reqresp/` | ReqResp | 14567 | 19067 | `echo+sum x full+bundle` |
+| `sqs/` | SQS | 14568 | 19068 | `echo+sum x full+bundle`, with an SQS reply queue |
+| `event/` | Event | 14569 | 19069 | `echo+notify x full+bundle`, verified by marker files |
 
-| Project | Type | LocalStack port | 4 cases |
-|---------|------|-----------------|---------|
-| `http/`    | HTTP    | 14566 | `api+full`, `wapi+full`, `api+bundle`, `wapi+bundle` |
-| `reqresp/` | ReqResp | 14567 | `echo+full`, `sum+full`, `echo+bundle`, `sum+bundle` |
-| `sqs/`     | SQS     | 14568 | `echo+full`, `sum+full`, `echo+bundle`, `sum+bundle` (each via SQS reply queue) |
-| `event/`   | Event   | 14569 | `echo+full`, `notify+full`, `echo+bundle`, `notify+bundle` (verified via marker file) |
+Each project owns its own `package.json`, `node_modules`, LocalStack container, bucket, queues, dynamic packages, Dockerfile, SAM template, and lambda YAML config.
 
-Only the **HTTP** type has a real `wapi` route, so it covers `api` + `wapi`.
-The other three engines are envelope-only (no `/wapi`), so their 4 cases cover
-two `api` routes × the two variants.
+The dynamically loaded packages intentionally do not hand-write the Tunnel interface:
 
-## Prerequisites
+- `/api` packages export `service.new(app)` from `@aura-studio/service-node`.
+- `/wapi` packages export `wire.new(app)` from `@aura-studio/wire-node`.
+- Dynamic package meta is not defined in the app package. The shared test
+  harness builds each package through the sibling `dynamic-node-cli` Builder
+  before uploading to LocalStack S3, so `Meta()` comes from the generated
+  dynamic-node wrapper and uses the Go-aligned `dynamic/toolchain` schema.
 
-- Docker running.
-- LocalStack **community** image `localstack/localstack:3` (the `:latest` tag is
-  now a Pro build that needs a license token). Override via `LOCALSTACK_IMAGE`.
+## Layout
 
-## Run a project
+Each app uses the same structure:
 
-Each project is independent — install and test it on its own:
-
-```bash
-cd examples/apps/http      # or reqresp / sqs / event
-npm install
-npm test                   # starts its own LocalStack, runs its 4 cases, tears down
-npm test -- --keep-up      # leave LocalStack running for inspection
+```text
+examples/apps/<app>/
+  config/lambda.yaml      # Lambda/dynamic config shape for the container example
+  Dockerfile              # AWS Lambda container image
+  template.yaml           # SAM image template
+  packages/               # dynamic-node packages uploaded to LocalStack S3
+  src/config.js           # executable test config
+  src/cases.js            # local in-process engine cases
+  src/bootstrap.js        # Lambda container handler
+  src/docker-cases.js     # invoke the Lambda runtime container
+  test.js                 # orchestration: LocalStack, upload, local cases, optional Docker Lambda
 ```
 
-`@aura-studio/lambda-node` is referenced as a local `file:` dependency, so
-`npm install` links the framework from this repo (no publish needed).
+The shared helper code lives in `examples/apps/_shared/` so the app examples stay small while still showing the moving parts clearly.
+
+## Local engine flow
+
+```bash
+cd examples/apps/http
+npm install
+npm test
+```
+
+`npm test` starts that app's LocalStack container, builds the dynamic packages
+with `dynamic-node-cli`, uploads the generated `libnode_*.zip` artifacts to S3,
+invokes the local lambda-node engine, prints the HTTP or decoded response bodies
+plus each package's build meta, and stops LocalStack.
+
+Use `--keep-up` to leave LocalStack running:
+
+```bash
+npm test -- --keep-up
+```
+
+## Dockerfile Lambda flow
+
+```bash
+cd examples/apps/http
+npm test -- --docker-lambda
+```
+
+The Docker flow adds these steps after the local engine cases:
+
+1. Build the app's `Dockerfile` from the `lambda-node` repo root.
+2. Start the AWS Lambda Runtime Interface Emulator container on the app's local Lambda port.
+3. Invoke `src/bootstrap.handler` through `/2015-03-31/functions/function/invocations`.
+4. Assert real response bodies. For SQS, the response is also verified through the LocalStack reply queue.
+
+The Docker image talks back to LocalStack through `host.docker.internal:<LocalStack port>`.
+The Docker build context is the `aura-studio` workspace root so the image can use the sibling local packages `dynamic-node`, `service-node`, `wire-node`, and `tunnel-node` instead of pulling them from GitHub.
+
+## SAM files
+
+Each app has a `template.yaml` equivalent to the Dockerfile flow:
+
+```bash
+cd examples/apps/http
+sam build
+sam local invoke HttpFunction --event events/api-full.json
+```
+
+The examples do not require SAM for automated testing; SAM is included so the same Docker image layout can be inspected or adapted to AWS deployment.

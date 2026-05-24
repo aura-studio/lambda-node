@@ -1,0 +1,5 @@
+{
+  "variant": "bundle",
+  "path": "/api/app-bundle/v1/sum",
+  "payload": "eyJhIjo0LCJiIjo2fQ=="
+}
