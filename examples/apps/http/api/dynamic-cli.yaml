@@ -1,9 +1,9 @@
 environments:
   - name: node-full
     toolchain:
-      os: linux
-      arch: amd64
-      compiler: node
+      os: windows10.0.26200.0
+      arch: amd64v1
+      compiler: node26.2.0
       variant: full
     warehouse:
       local: ../lambda/.tmp/warehouse
@@ -11,9 +11,9 @@ environments:
         - s3://lambda-node-app-http
   - name: node-bundle
     toolchain:
-      os: linux
-      arch: amd64
-      compiler: node
+      os: windows10.0.26200.0
+      arch: amd64v1
+      compiler: node26.2.0
       variant: bundle
     warehouse:
       local: ../lambda/.tmp/warehouse

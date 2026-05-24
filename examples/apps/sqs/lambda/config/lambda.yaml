@@ -9,9 +9,9 @@ sqs:
 dynamic:
   environment:
     toolchain:
-      os: linux
-      arch: amd64
-      compiler: node
+      os: windows10.0.26200.0
+      arch: amd64v1
+      compiler: node26.2.0
       variant: full
     warehouse:
       local: /tmp/app-sqs/warehouse

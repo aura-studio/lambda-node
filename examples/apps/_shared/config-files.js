@@ -12,8 +12,26 @@ async function assertConfigFiles(config) {
   await assertDynamicCliYaml(config);
 }
 
+// Sync the toolchain os/arch/compiler in a committed yaml to the auto-detected
+// values, so the checked-in lambda.yaml / dynamic-cli.yaml always match the
+// build+runtime toolchain on the current machine (and the manual
+// `dynamic-node build -c dynamic-cli.yaml` env checks pass). These keys only
+// appear under a toolchain block in these files, so a line-level replace is safe.
+function syncToolchain(file, tc) {
+  const before = fs.readFileSync(file, 'utf8');
+  const after = before
+    .replace(/^(\s*os:\s*).*$/gm, `$1${tc.os}`)
+    .replace(/^(\s*arch:\s*).*$/gm, `$1${tc.arch}`)
+    .replace(/^(\s*compiler:\s*).*$/gm, `$1${tc.compiler}`);
+  if (after !== before) {
+    fs.writeFileSync(file, after);
+    console.log(`[config] synced toolchain in ${path.basename(file)} -> ${tc.os}/${tc.arch}/${tc.compiler}`);
+  }
+}
+
 function assertLambdaYaml(config) {
   const file = config.lambdaConfig || path.join(config.lambdaDir || config.appDir, 'config', 'lambda.yaml');
+  syncToolchain(file, config.toolchain);
   const raw = fs.readFileSync(file, 'utf8');
   const cfg = yaml.load(raw) || {};
 
@@ -44,6 +62,7 @@ function assertLambdaYaml(config) {
 
 async function assertDynamicCliYaml(config) {
   const file = config.dynamicCliConfig || path.join(config.apiDir, 'dynamic-cli.yaml');
+  syncToolchain(file, config.toolchain);
   const { parseConfig, validateConfig } = await loadDynamicNodeCliConfig();
   const cfg = parseConfig(file);
   validateConfig(cfg);

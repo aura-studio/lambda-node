@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const { detectToolchain } = require('../../../_shared/toolchain');
 
 const lambdaDir = path.resolve(__dirname, '..');
 const appRoot = path.resolve(lambdaDir, '..');
@@ -30,7 +31,7 @@ module.exports = {
   responseQueue: 'lambda-node-app-sqs-response',
   namespace: 'app',
   version: 'v1',
-  toolchain: { os: 'linux', arch: 'amd64', compiler: 'node' },
+  toolchain: detectToolchain(),
   warehouse: process.env.LAMBDA_NODE_WAREHOUSE || path.join(lambdaDir, '.tmp', 'warehouse'),
   packageDir: path.join(apiDir, 'packages'),
   packages: {
