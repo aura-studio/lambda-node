@@ -75,8 +75,7 @@ async function doMetaProcessorFn(engine, c) {
 async function handlePath(engine, path_, req) {
   const parts = path_.replace(/^\/+|\/+$/g, '').split('/');
   if (parts.length < 2) throw new Error(`invalid path: "${path_}"`);
-  const tunnel = await engine.dynamic.getPackage(parts[0], parts[1]);
-  return await tunnel.invoke('/' + parts.slice(2).join('/'), req);
+  return engine.dynamic.invokePackage(parts[0], parts[1], '/' + parts.slice(2).join('/'), req);
 }
 
 async function metaHandler(engine, path_) {
@@ -84,8 +83,7 @@ async function metaHandler(engine, path_) {
   const parts = path_.replace(/^\/+|\/+$/g, '').split('/');
   if (parts.length >= 2) {
     try {
-      const tunnel = await engine.dynamic.getPackage(parts[0], parts[1]);
-      tunnelMeta = await tunnel.meta();
+      tunnelMeta = await engine.dynamic.metaPackage(parts[0], parts[1]);
     } catch (_) {}
   }
   return engine.dynamic.metaGenerator.generate(tunnelMeta);

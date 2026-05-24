@@ -1,6 +1,8 @@
 'use strict';
 
 class Tunnel {
+  async init() {}
+
   async invoke(route, request) {
     throw new Error('Tunnel.invoke(route, request) is not implemented');
   }
@@ -59,6 +61,48 @@ class EnvelopeTunnel extends Tunnel {
   }
 }
 
+class LambdaPackageTunnel extends Tunnel {
+  constructor(mod, pkg, version) {
+    super();
+    this.mod = mod;
+    this.pkg = pkg;
+    this.version = version;
+    this.envelope = new EnvelopeTunnel(
+      envelopeHandlerFromModule(mod, pkg, version),
+      metaFromModule(mod)
+    );
+  }
+
+  async invoke(route, request) {
+    if (isHTTPExchange(request)) {
+      const handler = nativeHTTPHandlerFromModule(this.mod, this.pkg, this.version);
+      const req = request.req || request.request;
+      const res = request.res || request.response;
+      const next = typeof request.next === 'function' ? request.next : undefined;
+      const result = handler(req, res, next);
+      if (result && typeof result.then === 'function') {
+        await result;
+      }
+      return result === undefined ? res : result;
+    }
+
+    return this.envelope.invoke(route, request);
+  }
+
+  async meta() {
+    return this.envelope.meta();
+  }
+}
+
+function isHTTPExchange(value) {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    (value.req || value.request) &&
+    (value.res || value.response)
+  );
+}
+
 function envelopeHandlerFromModule(mod, pkg, version) {
   if (typeof mod === 'function') return mod;
   if (mod && typeof mod.default === 'function') return mod.default;
@@ -93,10 +137,34 @@ function nativeHTTPHandlerFromModule(mod, pkg, version) {
   throw new Error(`package ${pkg}@${version} does not export a native HTTP handler`);
 }
 
+function isTunnelLike(value) {
+  if (!value) return false;
+  const lower =
+    typeof value.init === 'function' &&
+    typeof value.invoke === 'function' &&
+    typeof value.meta === 'function' &&
+    typeof value.close === 'function';
+  const upper =
+    typeof value.Init === 'function' &&
+    typeof value.Invoke === 'function' &&
+    typeof value.Meta === 'function' &&
+    typeof value.Close === 'function';
+  return lower || upper;
+}
+
+function tunnelFromModule(mod, pkg, version) {
+  if (isTunnelLike(mod)) return mod;
+  if (mod && isTunnelLike(mod.Tunnel)) return mod.Tunnel;
+  if (mod && typeof mod.New === 'function') return mod.New();
+  return new LambdaPackageTunnel(mod, pkg, version);
+}
+
 module.exports = {
   Tunnel,
   EnvelopeTunnel,
+  LambdaPackageTunnel,
   envelopeHandlerFromModule,
   metaFromModule,
   nativeHTTPHandlerFromModule,
+  tunnelFromModule,
 };

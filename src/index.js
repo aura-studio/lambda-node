@@ -8,6 +8,7 @@ const sqs = require('./sqs');
 const event = require('./event');
 const client = require('./client');
 const runtime = require('./runtime');
+const protocol = require('./protocol');
 
 const { serve, start } = server;
 
@@ -22,4 +23,5 @@ module.exports = {
   event,
   client,
   runtime,
+  protocol,
 };

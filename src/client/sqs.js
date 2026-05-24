@@ -3,6 +3,16 @@
 const { v4: uuidv4 } = require('uuid');
 const { encodePayload, decodePayload } = require('../protocol/payload');
 
+function createSQSCommand(name, input) {
+  try {
+    const commands = require('@aws-sdk/client-sqs');
+    const Command = commands[name];
+    return new Command(input);
+  } catch (_) {
+    return { input, commandName: name };
+  }
+}
+
 /**
  * SQS Client - sends messages to SQS and optionally waits for replies.
  * Mirrors Go sqs/client/client.go.
@@ -75,12 +85,10 @@ class SqsClient {
       this._pendingRequests.set(correlationId, { resolve, reject, timer });
     });
 
-    // Send message
-    const { SendMessageCommand } = require('@aws-sdk/client-sqs');
-    await this.sqsClient.send(new SendMessageCommand({
+    await this._sendMessage({
       QueueUrl: this.requestSqsId,
       MessageBody: JSON.stringify(request),
-    }));
+    });
 
     return responsePromise;
   }
@@ -100,11 +108,10 @@ class SqsClient {
       payload: encodePayload(payload),
     };
 
-    const { SendMessageCommand } = require('@aws-sdk/client-sqs');
-    await this.sqsClient.send(new SendMessageCommand({
+    await this._sendMessage({
       QueueUrl: this.requestSqsId,
       MessageBody: JSON.stringify(request),
-    }));
+    });
   }
 
   /**
@@ -126,25 +133,23 @@ class SqsClient {
     if (this._listening) return;
     this._listening = true;
 
-    const { ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
-
     while (!this._stopSignal) {
       try {
-        const output = await this.sqsClient.send(new ReceiveMessageCommand({
+        const output = await this._receiveMessage({
           QueueUrl: this.responseSqsId,
           MaxNumberOfMessages: 10,
           WaitTimeSeconds: 20,
-        }));
+        });
 
         if (output.Messages) {
           for (const msg of output.Messages) {
             this._handleIncomingMessage(msg);
             // Delete processed message
             try {
-              await this.sqsClient.send(new DeleteMessageCommand({
+              await this._deleteMessage({
                 QueueUrl: this.responseSqsId,
                 ReceiptHandle: msg.ReceiptHandle,
-              }));
+              });
             } catch (_) {
               // Ignore delete errors
             }
@@ -186,6 +191,36 @@ class SqsClient {
         error: resp.error || '',
       });
     }
+  }
+
+  async _sendMessage(params) {
+    if (this.sqsClient && typeof this.sqsClient.sendMessage === 'function') {
+      return this.sqsClient.sendMessage(params);
+    }
+    if (this.sqsClient && typeof this.sqsClient.send === 'function') {
+      return this.sqsClient.send(createSQSCommand('SendMessageCommand', params));
+    }
+    throw new Error('sqs client must implement sendMessage(params) or send(command)');
+  }
+
+  async _receiveMessage(params) {
+    if (this.sqsClient && typeof this.sqsClient.receiveMessage === 'function') {
+      return this.sqsClient.receiveMessage(params);
+    }
+    if (this.sqsClient && typeof this.sqsClient.send === 'function') {
+      return this.sqsClient.send(createSQSCommand('ReceiveMessageCommand', params));
+    }
+    throw new Error('sqs client must implement receiveMessage(params) or send(command)');
+  }
+
+  async _deleteMessage(params) {
+    if (this.sqsClient && typeof this.sqsClient.deleteMessage === 'function') {
+      return this.sqsClient.deleteMessage(params);
+    }
+    if (this.sqsClient && typeof this.sqsClient.send === 'function') {
+      return this.sqsClient.send(createSQSCommand('DeleteMessageCommand', params));
+    }
+    throw new Error('sqs client must implement deleteMessage(params) or send(command)');
   }
 }
 

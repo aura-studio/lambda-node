@@ -6,10 +6,17 @@
   "scripts": {
     "start": "node start.js",
     "test": "node --test test/**/*.test.js",
-    "example:http:api": "node examples/http/api.js",
-    "example:http:wapi": "node examples/http/wapi.js",
-    "example:http:simple": "node examples/http/simple.js",
-    "example:http:config": "node examples/http/config_file.js"
+    "example": "node examples/scripts/99-run-all-local.js",
+    "example:ui": "node examples/scripts/test-ui.js",
+    "example:smoke": "node examples/scripts/01-smoke.js",
+    "example:dynamic": "node examples/scripts/02-dynamic.js",
+    "example:http:api": "node examples/scripts/03-http-api.js",
+    "example:http:wapi": "node examples/scripts/04-http-wapi.js",
+    "example:reqresp": "node examples/scripts/05-reqresp.js",
+    "example:event": "node examples/scripts/06-event.js",
+    "example:sqs": "node examples/scripts/07-sqs.js",
+    "example:server": "node examples/scripts/08-server.js",
+    "example:clients": "node examples/scripts/09-clients.js"
   },
   "keywords": [
     "lambda",

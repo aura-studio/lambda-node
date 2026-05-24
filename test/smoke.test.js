@@ -22,6 +22,19 @@ const nativeMod = (req, res) => {
     }));
   });
 };
+const upperTunnel = {
+  async Init() {},
+  async Invoke(route, req) {
+    return JSON.stringify({
+      meta: { route, mode: 'upper' },
+      data: Buffer.from(JSON.stringify({ route, req })).toString('base64'),
+    });
+  },
+  async Meta() {
+    return JSON.stringify({ name: 'upper', version: 'v1' });
+  },
+  async Close() {},
+};
 
 // Test 1: Dynamic package loading
 describe('Dynamic', () => {
@@ -57,6 +70,19 @@ describe('Dynamic', () => {
     const metaObj = JSON.parse(metaStr);
     assert.strictEqual(metaObj.name, 'example');
     assert.strictEqual(metaObj.version, 'v1');
+  });
+
+  it('should invoke uppercase Tunnel packages through dynamic-node helpers', async () => {
+    const dyn = new lambda.dynamic.Dynamic(
+      lambda.dynamic.withStaticPackage({ package: 'upper', version: 'v1', handler: upperTunnel }),
+    );
+
+    const rsp = await dyn.invokePackage('upper', 'v1', '/upper-test', 'hello upper');
+    const decoded = JSON.parse(Buffer.from(JSON.parse(rsp).data, 'base64').toString('utf8'));
+    assert.deepStrictEqual(decoded, { route: '/upper-test', req: 'hello upper' });
+
+    const meta = JSON.parse(await dyn.metaPackage('upper', 'v1'));
+    assert.strictEqual(meta.name, 'upper');
   });
 });
 
@@ -290,7 +316,27 @@ describe('SQS Engine protocol', () => {
   });
 });
 
-// Test 5: Client timeouts
+// Test 5: Protobuf helpers
+describe('Protocol protobuf helpers', () => {
+  it('should round-trip Go-compatible SQS protobuf messages', () => {
+    const encoded = lambda.protocol.encodeSqsRequest({
+      request_sqs_id: 'request-queue',
+      response_sqs_id: 'response-queue',
+      correlation_id: 'corr-proto',
+      path: '/api/example/v1/test',
+      payload: Buffer.from('hello proto'),
+    });
+
+    const decoded = lambda.protocol.decodeSqsRequest(encoded);
+    assert.strictEqual(decoded.request_sqs_id, 'request-queue');
+    assert.strictEqual(decoded.response_sqs_id, 'response-queue');
+    assert.strictEqual(decoded.correlation_id, 'corr-proto');
+    assert.strictEqual(decoded.path, '/api/example/v1/test');
+    assert.strictEqual(decoded.payload.toString('utf8'), 'hello proto');
+  });
+});
+
+// Test 6: Client timeouts
 describe('Client timeouts', () => {
   it('should timeout ReqResp Lambda invokes', async () => {
     const client = new lambda.client.ReqRespClient({
@@ -315,9 +361,26 @@ describe('Client timeouts', () => {
 
     await assert.rejects(client.send('/api/example/v1/test', 'hello'), /request timeout/);
   });
+
+  it('should allow SQS clients with direct sendMessage methods', async () => {
+    const sentMessages = [];
+    const client = new lambda.client.SqsClient({
+      requestSqsId: 'request-queue',
+      sqsClient: {
+        sendMessage: async (params) => {
+          sentMessages.push(params);
+          return {};
+        },
+      },
+    });
+
+    await client.send('/api/example/v1/test', 'hello sqs client');
+    assert.strictEqual(sentMessages.length, 1);
+    assert.strictEqual(sentMessages[0].QueueUrl, 'request-queue');
+  });
 });
 
-// Test 6: Runtime entrypoints
+// Test 7: Runtime entrypoints
 describe('Runtime entrypoints', () => {
   it('should expose explicit start entrypoints', () => {
     assert.strictEqual(typeof lambda.start, 'function');
@@ -404,7 +467,7 @@ describe('Runtime entrypoints', () => {
   });
 });
 
-// Test 7: HTTP Engine integration
+// Test 8: HTTP Engine integration
 describe('HTTP Server', () => {
   let server;
   const port = 18901;

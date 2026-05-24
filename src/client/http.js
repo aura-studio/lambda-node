@@ -45,6 +45,10 @@ class HttpClient {
     return this.do('DELETE', path, null);
   }
 
+  doWithHeaders(method, path, body, headers = {}) {
+    return this.do(method, path, body, headers);
+  }
+
   /**
    * Send a generic HTTP request.
    * @param {string} method
