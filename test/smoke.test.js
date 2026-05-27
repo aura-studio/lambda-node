@@ -37,7 +37,7 @@ const upperTunnel = {
 };
 
 describe('Export surface', () => {
-  it('should expose top-level with helpers', () => {
+  it('should expose Go-style top-level server with helpers', () => {
     for (const name of [
       'withLambdaType',
       'withHttpOptions',
@@ -48,50 +48,26 @@ describe('Export surface', () => {
       'withServeConfig',
       'withServeConfigFile',
       'withDefaultServeConfigFile',
-      'withOs',
-      'withArch',
-      'withCompiler',
-      'withVariant',
-      'withLocalWarehouse',
-      'withRemoteWarehouse',
-      'withPackageNamespace',
-      'withPackageDefaultVersion',
-      'withStaticPackage',
-      'withPreloadPackage',
-      'withDynamicConfig',
-      'withDynamicConfigFile',
-      'withDefaultDynamicConfigFile',
-      'withAddress',
-      'withCorsMode',
-      'withStaticLink',
-      'withPrefixLink',
-      'withPageNotFoundPath',
-      'withHttpDebugMode',
-      'withHttpConfig',
-      'withHttpConfigFile',
-      'withDefaultHttpConfigFile',
-      'withReqRespDebugMode',
-      'withReqRespConfig',
-      'withReqRespConfigFile',
-      'withDefaultReqRespConfigFile',
-      'withSQSClient',
-      'withRunMode',
-      'withReplyMode',
-      'withSqsDebugMode',
-      'withSqsConfig',
-      'withSqsConfigFile',
-      'withDefaultSqsConfigFile',
-      'withEventDebugMode',
-      'withEventConfig',
-      'withEventConfigFile',
-      'withDefaultEventConfigFile',
     ]) {
       assert.strictEqual(typeof lambda[name], 'function', `${name} should be exported`);
     }
 
-    assert.strictEqual(lambda.withPrefixLink, lambda.http.withPrefixLink);
+    for (const name of [
+      'withAddress',
+      'withConfig',
+      'withConfigFile',
+      'withDebugMode',
+      'withOs',
+      'withRunMode',
+      'withStaticPackage',
+    ]) {
+      assert.strictEqual(lambda[name], undefined, `${name} should stay on its module namespace`);
+    }
+
+    assert.strictEqual(lambda.withHttpOptions, lambda.server.withHttpOptions);
     assert.strictEqual(lambda.withDynamicOptions, lambda.server.withDynamicOptions);
-    assert.strictEqual(lambda.withSqsConfigFile, lambda.sqs.withConfigFile);
+    assert.strictEqual(typeof lambda.http.withPrefixLink, 'function');
+    assert.strictEqual(typeof lambda.dynamic.withStaticPackage, 'function');
   });
 });
 

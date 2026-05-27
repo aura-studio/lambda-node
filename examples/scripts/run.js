@@ -71,45 +71,19 @@ async function stepSmoke() {
     "withServeConfig",
     "withServeConfigFile",
     "withDefaultServeConfigFile",
-    "withOs",
-    "withArch",
-    "withCompiler",
-    "withVariant",
-    "withLocalWarehouse",
-    "withRemoteWarehouse",
-    "withPackageNamespace",
-    "withPackageDefaultVersion",
-    "withStaticPackage",
-    "withPreloadPackage",
-    "withDynamicConfig",
-    "withDynamicConfigFile",
-    "withDefaultDynamicConfigFile",
-    "withAddress",
-    "withCorsMode",
-    "withStaticLink",
-    "withPrefixLink",
-    "withPageNotFoundPath",
-    "withHttpDebugMode",
-    "withHttpConfig",
-    "withHttpConfigFile",
-    "withDefaultHttpConfigFile",
-    "withReqRespDebugMode",
-    "withReqRespConfig",
-    "withReqRespConfigFile",
-    "withDefaultReqRespConfigFile",
-    "withSQSClient",
-    "withRunMode",
-    "withReplyMode",
-    "withSqsDebugMode",
-    "withSqsConfig",
-    "withSqsConfigFile",
-    "withDefaultSqsConfigFile",
-    "withEventDebugMode",
-    "withEventConfig",
-    "withEventConfigFile",
-    "withDefaultEventConfigFile",
   ]) {
     expectFunction(lambda, name);
+  }
+  for (const name of [
+    "withAddress",
+    "withConfig",
+    "withConfigFile",
+    "withDebugMode",
+    "withOs",
+    "withRunMode",
+    "withStaticPackage",
+  ]) {
+    assert.equal(lambda[name], undefined, `${name} should stay on its module namespace`);
   }
   for (const name of ["server", "dynamic", "http", "reqresp", "sqs", "event", "client", "runtime", "protocol"]) {
     assert.equal(typeof lambda[name], "object", `${name} should be exported`);
@@ -510,10 +484,10 @@ async function assertRunMode(runMode, label) {
 }
 
 async function stepServer() {
-  const reqrespHandler = await lambda.server.serve(
-    lambda.server.withLambdaType("reqresp"),
-    lambda.server.withReqRespOptions(lambda.reqresp.withDebugMode(false)),
-    lambda.server.withDynamicOptions(...exampleDynamicOptions()),
+  const reqrespHandler = await lambda.serve(
+    lambda.withLambdaType("reqresp"),
+    lambda.withReqRespOptions(lambda.reqresp.withDebugMode(false)),
+    lambda.withDynamicOptions(...exampleDynamicOptions()),
   );
   const reqrespResponse = await reqrespHandler({
     path: "/api/envelope/v1/echo",
@@ -521,19 +495,19 @@ async function stepServer() {
   });
   assert.equal(JSON.parse(decodePayload(reqrespResponse.payload)).message, "hello server-reqresp");
 
-  const eventHandler = await lambda.server.serve(
-    lambda.server.withLambdaType("event"),
-    lambda.server.withDynamicOptions(...exampleDynamicOptions()),
+  const eventHandler = await lambda.serve(
+    lambda.withLambdaType("event"),
+    lambda.withDynamicOptions(...exampleDynamicOptions()),
   );
   await eventHandler({
     path: "/api/envelope/v1/echo",
     payload: encodePayload(JSON.stringify({ name: "server-event" })),
   });
 
-  const sqsHandler = await lambda.server.serve(
-    lambda.server.withLambdaType("sqs"),
-    lambda.server.withSqsOptions(lambda.sqs.withRunMode(lambda.sqs.RunModePartial)),
-    lambda.server.withDynamicOptions(...exampleDynamicOptions()),
+  const sqsHandler = await lambda.serve(
+    lambda.withLambdaType("sqs"),
+    lambda.withSqsOptions(lambda.sqs.withRunMode(lambda.sqs.RunModePartial)),
+    lambda.withDynamicOptions(...exampleDynamicOptions()),
   );
   const sqsResponse = await sqsHandler({
     Records: [
@@ -549,10 +523,10 @@ async function stepServer() {
   assert.deepEqual(sqsResponse, { batchItemFailures: [] });
 
   const port = await getFreePort();
-  await lambda.server.serve(
-    lambda.server.withLambdaType("http"),
-    lambda.server.withHttpOptions(lambda.http.withAddress(`127.0.0.1:${port}`)),
-    lambda.server.withDynamicOptions(...exampleDynamicOptions()),
+  await lambda.serve(
+    lambda.withLambdaType("http"),
+    lambda.withHttpOptions(lambda.http.withAddress(`127.0.0.1:${port}`)),
+    lambda.withDynamicOptions(...exampleDynamicOptions()),
   );
   try {
     const result = await fetchText(`http://127.0.0.1:${port}/api/envelope/v1/echo`, {
@@ -565,7 +539,7 @@ async function stepServer() {
     await lambda.http.close();
   }
 
-  const options = lambda.server.newOptions(lambda.server.withServeConfig(`
+  const options = lambda.server.newOptions(lambda.withServeConfig(`
 lambda: reqresp
 reqresp:
   mode:
