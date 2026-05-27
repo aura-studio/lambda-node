@@ -61,9 +61,56 @@ async function stepClean(ctx) {
 async function stepSmoke() {
   expectFunction(lambda, "serve");
   expectFunction(lambda, "start");
-  expectFunction(lambda, "withServeConfig");
-  expectFunction(lambda, "withServeConfigFile");
-  expectFunction(lambda, "withDefaultServeConfigFile");
+  for (const name of [
+    "withLambdaType",
+    "withHttpOptions",
+    "withSqsOptions",
+    "withReqRespOptions",
+    "withEventOptions",
+    "withDynamicOptions",
+    "withServeConfig",
+    "withServeConfigFile",
+    "withDefaultServeConfigFile",
+    "withOs",
+    "withArch",
+    "withCompiler",
+    "withVariant",
+    "withLocalWarehouse",
+    "withRemoteWarehouse",
+    "withPackageNamespace",
+    "withPackageDefaultVersion",
+    "withStaticPackage",
+    "withPreloadPackage",
+    "withDynamicConfig",
+    "withDynamicConfigFile",
+    "withDefaultDynamicConfigFile",
+    "withAddress",
+    "withCorsMode",
+    "withStaticLink",
+    "withPrefixLink",
+    "withPageNotFoundPath",
+    "withHttpDebugMode",
+    "withHttpConfig",
+    "withHttpConfigFile",
+    "withDefaultHttpConfigFile",
+    "withReqRespDebugMode",
+    "withReqRespConfig",
+    "withReqRespConfigFile",
+    "withDefaultReqRespConfigFile",
+    "withSQSClient",
+    "withRunMode",
+    "withReplyMode",
+    "withSqsDebugMode",
+    "withSqsConfig",
+    "withSqsConfigFile",
+    "withDefaultSqsConfigFile",
+    "withEventDebugMode",
+    "withEventConfig",
+    "withEventConfigFile",
+    "withDefaultEventConfigFile",
+  ]) {
+    expectFunction(lambda, name);
+  }
   for (const name of ["server", "dynamic", "http", "reqresp", "sqs", "event", "client", "runtime", "protocol"]) {
     assert.equal(typeof lambda[name], "object", `${name} should be exported`);
   }

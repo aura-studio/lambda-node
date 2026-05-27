@@ -36,6 +36,65 @@ const upperTunnel = {
   async Close() {},
 };
 
+describe('Export surface', () => {
+  it('should expose top-level with helpers', () => {
+    for (const name of [
+      'withLambdaType',
+      'withHttpOptions',
+      'withSqsOptions',
+      'withReqRespOptions',
+      'withEventOptions',
+      'withDynamicOptions',
+      'withServeConfig',
+      'withServeConfigFile',
+      'withDefaultServeConfigFile',
+      'withOs',
+      'withArch',
+      'withCompiler',
+      'withVariant',
+      'withLocalWarehouse',
+      'withRemoteWarehouse',
+      'withPackageNamespace',
+      'withPackageDefaultVersion',
+      'withStaticPackage',
+      'withPreloadPackage',
+      'withDynamicConfig',
+      'withDynamicConfigFile',
+      'withDefaultDynamicConfigFile',
+      'withAddress',
+      'withCorsMode',
+      'withStaticLink',
+      'withPrefixLink',
+      'withPageNotFoundPath',
+      'withHttpDebugMode',
+      'withHttpConfig',
+      'withHttpConfigFile',
+      'withDefaultHttpConfigFile',
+      'withReqRespDebugMode',
+      'withReqRespConfig',
+      'withReqRespConfigFile',
+      'withDefaultReqRespConfigFile',
+      'withSQSClient',
+      'withRunMode',
+      'withReplyMode',
+      'withSqsDebugMode',
+      'withSqsConfig',
+      'withSqsConfigFile',
+      'withDefaultSqsConfigFile',
+      'withEventDebugMode',
+      'withEventConfig',
+      'withEventConfigFile',
+      'withDefaultEventConfigFile',
+    ]) {
+      assert.strictEqual(typeof lambda[name], 'function', `${name} should be exported`);
+    }
+
+    assert.strictEqual(lambda.withPrefixLink, lambda.http.withPrefixLink);
+    assert.strictEqual(lambda.withDynamicOptions, lambda.server.withDynamicOptions);
+    assert.strictEqual(lambda.withSqsConfigFile, lambda.sqs.withConfigFile);
+  });
+});
+
 // Test 1: Dynamic package loading
 describe('Dynamic', () => {
   it('should load a registered package and invoke it', async () => {
