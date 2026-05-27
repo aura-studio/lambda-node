@@ -1,6 +1,6 @@
 {
   "name": "@aura-studio/lambda-node",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Multi-mode Lambda framework for Node.js (HTTP, ReqResp, SQS, Event)",
   "main": "src/index.js",
   "scripts": {
@@ -46,7 +46,7 @@
   "author": "aura-studio",
   "license": "MIT",
   "dependencies": {
-    "@aura-studio/dynamic-node": "https://github.com/aura-studio/dynamic-node/archive/refs/tags/v1.0.0.tar.gz",
+    "@aura-studio/dynamic-node": "https://github.com/aura-studio/dynamic-node/archive/refs/tags/v1.0.1.tar.gz",
     "express": "^4.21.0",
     "js-yaml": "^4.1.0",
     "uuid": "^10.0.0"
