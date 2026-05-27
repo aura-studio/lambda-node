@@ -10,11 +10,20 @@ const client = require('./client');
 const runtime = require('./runtime');
 const protocol = require('./protocol');
 
-const { serve, start } = server;
+const {
+  serve,
+  start,
+  withServeConfig,
+  withServeConfigFile,
+  withDefaultServeConfigFile,
+} = server;
 
 module.exports = {
   serve,
   start,
+  withServeConfig,
+  withServeConfigFile,
+  withDefaultServeConfigFile,
   server,
   dynamic,
   http,

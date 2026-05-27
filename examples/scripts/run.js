@@ -61,6 +61,9 @@ async function stepClean(ctx) {
 async function stepSmoke() {
   expectFunction(lambda, "serve");
   expectFunction(lambda, "start");
+  expectFunction(lambda, "withServeConfig");
+  expectFunction(lambda, "withServeConfigFile");
+  expectFunction(lambda, "withDefaultServeConfigFile");
   for (const name of ["server", "dynamic", "http", "reqresp", "sqs", "event", "client", "runtime", "protocol"]) {
     assert.equal(typeof lambda[name], "object", `${name} should be exported`);
   }
