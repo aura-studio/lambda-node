@@ -43,13 +43,19 @@ function installRewriteHandlers(engine) {
   const opts = engine.options;
 
   app.use((req, res, next) => {
-    req.url = normalizeURL(req.url);
+    // Don't mutate req.url to the normalized form — normalizePath strips
+    // trailing slashes which makes /foo/ indistinguishable from /foo by the
+    // time handleWAPI sees req.params[0]. Compute a normalized pathname only
+    // for match comparisons; rewrite preserves the original trailing slash.
+    const originalUrl = req.url || '/';
+    const { pathname, search } = splitURL(originalUrl);
+    const originalPathPart = originalUrl.split(/[?#]/)[0] || '/';
+    const hadTrailingSlash = originalPathPart.length > 1 && originalPathPart.endsWith('/');
 
-    const { pathname, search } = splitURL(req.url);
     if (opts.staticLinkMap[pathname]) {
       const rule = opts.staticLinkMap[pathname];
       if (matchMethod(rule, req.method)) {
-        req.headers[HeaderOriginalPath.toLowerCase()] = req.url;
+        req.headers[HeaderOriginalPath.toLowerCase()] = originalUrl;
         req.url = rule.dst + search;
         app.handle(req, res);
         return;
@@ -58,8 +64,12 @@ function installRewriteHandlers(engine) {
 
     for (const [oldPrefix, rule] of Object.entries(opts.prefixLinkMap)) {
       if (pathname.startsWith(oldPrefix) && matchMethod(rule, req.method)) {
-        req.headers[HeaderOriginalPath.toLowerCase()] = req.url;
-        req.url = pathname.replace(oldPrefix, rule.dst) + search;
+        req.headers[HeaderOriginalPath.toLowerCase()] = originalUrl;
+        let rewritten = pathname.replace(oldPrefix, rule.dst);
+        if (hadTrailingSlash && !rewritten.endsWith('/')) {
+          rewritten += '/';
+        }
+        req.url = rewritten + search;
         app.handle(req, res);
         return;
       }
@@ -165,6 +175,7 @@ async function handleAPI(engine, req, res, debug) {
 }
 
 async function handleWAPI(engine, req, res, debug, rawPath) {
+  const hadTrailingSlash = rawPath.length > 0 && rawPath.endsWith('/');
   const parts = rawPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
   if (parts.length < 2) {
     res.status(404).send('Not Found');
@@ -173,9 +184,16 @@ async function handleWAPI(engine, req, res, debug, rawPath) {
 
   const pkg = parts[0];
   const version = parts[1];
-  const innerPath = '/' + parts.slice(2).join('/');
+  let innerPath = '/' + parts.slice(2).join('/');
+  // Preserve trailing slash so inner routers can distinguish /foo from /foo/
+  // (express treats them as distinct, and /foo -> 302 /foo/ redirects loop
+  // forever otherwise).
+  if (hadTrailingSlash && parts.length > 2 && !innerPath.endsWith('/')) {
+    innerPath += '/';
+  }
   const search = splitURL(req.url).search;
-  const innerURL = normalizeURL(innerPath + search);
+  // Skip normalizeURL — it would re-strip the trailing slash we just preserved.
+  const innerURL = innerPath + search;
 
   let handler;
   try {
