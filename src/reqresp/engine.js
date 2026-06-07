@@ -31,7 +31,7 @@ class Engine {
       console.log(`[ReqResp] Response: ${c.getString(ContextPath)} ${c.getString(ContextResponse)}`);
     }
 
-    const resp = { payload: encodePayload(c.getString(ContextResponse)), error: '' };
+    const resp = { payload: encodePayload(c.getString(ContextResponse)) };
 
     const [panicVal] = c.get(ContextPanic);
     if (panicVal) {

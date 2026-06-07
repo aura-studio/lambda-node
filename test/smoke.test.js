@@ -135,11 +135,24 @@ describe('ReqResp Engine', () => {
     });
 
     assert.ok(resp, 'response should not be null');
-    assert.strictEqual(resp.error, '');
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(resp, 'error'), false);
     assert.ok(resp.payload, 'payload should not be empty');
 
     const body = JSON.parse(decodePayload(resp.payload));
     assert.deepStrictEqual(JSON.parse(body.echo), { message: 'hello' });
+  });
+
+  it('should include error only when the invocation fails', async () => {
+    const engine = new lambda.reqresp.Engine([], []);
+
+    const resp = await engine.invoke({
+      path: '/api/missing/v1/test',
+      payload: encodePayload(JSON.stringify({ message: 'hello' })),
+    });
+
+    assert.strictEqual(typeof resp.error, 'string');
+    assert.ok(resp.error.length > 0);
+    assert.ok(resp.payload !== undefined);
   });
 });
 
