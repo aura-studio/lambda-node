@@ -201,7 +201,7 @@ async function runReqRespE2E() {
     path: '/api/reqresp-app/v1/echo',
     payload: encodePayload(JSON.stringify({ name: 'localstack' })),
   });
-  assert.equal(response.error, '');
+  assert.equal(response.error, undefined);
   const decoded = JSON.parse(decodePayload(response.payload));
   console.log(JSON.stringify(decoded, null, 2));
   assert.equal(decoded.message, 'hello localstack from reqresp e2e');

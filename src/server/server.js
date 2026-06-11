@@ -10,9 +10,12 @@ const event = require('../event/server');
  * Serve - unified entry point that dispatches to the correct mode.
  * Mirrors Go server.Serve().
  *
+ * HTTP mode starts the HTTP server (the Lambda Web Adapter extension polls
+ * the Runtime API). Lambda modes (reqresp/sqs/event) run the Runtime API
+ * loop in-process and never resolve under normal operation.
+ *
  * @param {...Function} opts - server option functions
- * @returns {Promise<Function|void>} For HTTP: resolves when server starts.
- *   For Lambda modes: returns the handler function.
+ * @returns {Promise<void>} For HTTP: resolves when the server is listening.
  */
 async function serve(...opts) {
   const options = newOptions(...opts);
@@ -34,31 +37,35 @@ async function serve(...opts) {
 }
 
 /**
- * Start - unified entry point for executable bootstraps.
- *
- * HTTP mode starts the HTTP server. Lambda modes start a Runtime API loop,
- * matching Go's lambda.Start-based entrypoint behavior.
+ * CreateHandler builds the mode handler without entering the Runtime API
+ * loop — the embedding/test API. Not available in http mode.
  *
  * @param {...Function} opts - server option functions
- * @returns {Promise<void>}
+ * @returns {Function} Lambda handler function
  */
-async function start(...opts) {
+function createHandler(...opts) {
   const options = newOptions(...opts);
 
   switch (options.lambda) {
     case 'event':
-      return event.start(options.event, options.dynamic);
+      return event.createHandler(options.event, options.dynamic);
 
     case 'sqs':
-      return sqs.start(options.sqs, options.dynamic);
+      return sqs.createHandler(options.sqs, options.dynamic);
 
     case 'reqresp':
-      return reqresp.start(options.reqresp, options.dynamic);
+      return reqresp.createHandler(options.reqresp, options.dynamic);
 
     case 'http':
     default:
-      return http.serve(options.http, options.dynamic);
+      throw new Error('createHandler is not available in http mode; use serve()');
   }
 }
 
-module.exports = { serve, start };
+/**
+ * @deprecated Alias of serve(), kept for callers written before serve owned
+ * the Runtime API loop.
+ */
+const start = serve;
+
+module.exports = { serve, start, createHandler };

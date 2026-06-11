@@ -16,7 +16,7 @@ async function runVariant(variant, opts = {}) {
     path: `/api/${pkg}/v1/echo`,
     payload: enc({ name: 'app' }),
   });
-  assert.equal(echo.error, '');
+  assert.equal(echo.error, undefined);
   const echoBody = dec(echo.payload);
   console.log(`[reqresp] echo+${variant}:`, JSON.stringify(echoBody));
   assert.equal(echoBody.op, 'echo');
@@ -27,7 +27,7 @@ async function runVariant(variant, opts = {}) {
     path: `/api/${pkg}/v1/sum`,
     payload: enc({ a: 2, b: 3 }),
   });
-  assert.equal(sum.error, '');
+  assert.equal(sum.error, undefined);
   const sumBody = dec(sum.payload);
   console.log(`[reqresp] sum+${variant}:`, JSON.stringify(sumBody));
   assert.equal(sumBody.op, 'sum');

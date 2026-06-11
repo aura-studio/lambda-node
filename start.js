@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const { start, server } = require('./src');
+const { serve, server } = require('./src');
 
 const configFile = process.argv[2] || path.join(process.cwd(), 'lambda.yml');
 const fs = require('fs');
@@ -14,7 +14,7 @@ if (!fs.existsSync(configFile)) {
 
 console.log(`[lambda-node] loading config: ${configFile}`);
 
-start(
+serve(
   server.withServeConfigFile(configFile),
 ).catch((err) => {
   console.error(`[lambda-node] failed to start: ${err.message}`);

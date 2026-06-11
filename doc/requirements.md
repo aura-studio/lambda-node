@@ -393,6 +393,16 @@ serve({
 });
 ```
 
+### 10.1 serve 语义（v1.0.7 起，与 Go 版 server.Serve 对齐）
+
+- `serve()` 是唯一的可执行入口，按配置 `lambda:` 字段分发：
+  - `http`：启动 HTTP 服务器，Runtime API 由镜像内的 Lambda Web Adapter 扩展（`/opt/extensions/lambda-adapter`）轮询；
+  - `reqresp` / `sqs` / `event`：进程内自带 Runtime API 轮询循环，正常运行永不返回；缺 `AWS_LAMBDA_RUNTIME_API` 环境变量时立即抛错。
+- `start()` 是 `serve()` 的 deprecated 别名，仅为兼容保留。
+- 嵌入 / 测试场景用 `createHandler()` 取 handler 直接调用，不触碰 Runtime API。
+- 本库假定部署形态为容器镜像 + `node main.js` 直接入口。禁止配合 AWS 托管运行时 / RIC 的 handler 导出方式使用——库内循环会与 RIC 双轮询抢占 invocation。
+- lambda.yaml 的模式必须与 Dockerfile 配套：`http` ↔ 镜像带 lambda-adapter；`reqresp`/`sqs`/`event` ↔ 镜像不带。错配表现为 init 超时（没人轮询）或 invocation 错乱（双轮询）。
+
 ## 11. 技术栈
 
 - **运行时**：Node.js 18+

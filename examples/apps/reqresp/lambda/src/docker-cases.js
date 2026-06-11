@@ -28,7 +28,7 @@ async function runVariantContainer(variant) {
       payload: enc({ name: 'docker' }),
     });
     assert.equal(echo.status, 200);
-    assert.equal(echo.body.error, '');
+    assert.equal(echo.body.error, undefined);
     const echoBody = dec(echo.body.payload);
     console.log(`[reqresp docker] ${pkg} echo:`, JSON.stringify(echoBody));
     assert.equal(echoBody.message, `hello docker from reqresp api (${variant})`);
@@ -38,7 +38,7 @@ async function runVariantContainer(variant) {
       payload: enc({ a: 4, b: 6 }),
     });
     assert.equal(sum.status, 200);
-    assert.equal(sum.body.error, '');
+    assert.equal(sum.body.error, undefined);
     const sumBody = dec(sum.body.payload);
     console.log(`[reqresp docker] ${pkg} sum:`, JSON.stringify(sumBody));
     assert.equal(sumBody.sum, 10);

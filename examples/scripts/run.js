@@ -191,6 +191,7 @@ async function stepSmoke() {
   for (const name of [
     "serve",
     "start",
+    "createHandler",
     "newOptions",
     "withLambdaType",
     "withHttpOptions",
@@ -370,12 +371,12 @@ async function stepReqResp() {
     path: "/api/envelope/v1/echo",
     payload: encodePayload(JSON.stringify({ name: "reqresp" })),
   });
-  assert.equal(response.error, "");
+  assert.equal(response.error, undefined);
   console.log(decodePayload(response.payload));
   assert.equal(JSON.parse(decodePayload(response.payload)).message, "hello reqresp");
 
   response = await engine.invoke({ path: "/meta/envelope/v1", payload: "" });
-  assert.equal(response.error, "");
+  assert.equal(response.error, undefined);
   assert.ok(JSON.parse(decodePayload(response.payload)).service);
 
   const handler = lambda.reqresp.createHandler([], exampleDynamicOptions());
@@ -383,7 +384,7 @@ async function stepReqResp() {
     path: "/_/api/envelope/v1/echo",
     payload: encodePayload(JSON.stringify({ name: "debug-reqresp" })),
   });
-  assert.equal(response.error, "");
+  assert.equal(response.error, undefined);
   console.log(decodePayload(response.payload));
   ok("ReqResp engine and handler examples passed");
 }
@@ -484,7 +485,7 @@ async function assertRunMode(runMode, label) {
 }
 
 async function stepServer() {
-  const reqrespHandler = await lambda.serve(
+  const reqrespHandler = lambda.createHandler(
     lambda.withLambdaType("reqresp"),
     lambda.withReqRespOptions(lambda.reqresp.withDebugMode(false)),
     lambda.withDynamicOptions(...exampleDynamicOptions()),
@@ -495,7 +496,7 @@ async function stepServer() {
   });
   assert.equal(JSON.parse(decodePayload(reqrespResponse.payload)).message, "hello server-reqresp");
 
-  const eventHandler = await lambda.serve(
+  const eventHandler = lambda.createHandler(
     lambda.withLambdaType("event"),
     lambda.withDynamicOptions(...exampleDynamicOptions()),
   );
@@ -504,7 +505,7 @@ async function stepServer() {
     payload: encodePayload(JSON.stringify({ name: "server-event" })),
   });
 
-  const sqsHandler = await lambda.serve(
+  const sqsHandler = lambda.createHandler(
     lambda.withLambdaType("sqs"),
     lambda.withSqsOptions(lambda.sqs.withRunMode(lambda.sqs.RunModePartial)),
     lambda.withDynamicOptions(...exampleDynamicOptions()),

@@ -25,6 +25,7 @@ const serverHelpers = {
 module.exports = {
   serve: server.serve,
   start: server.start,
+  createHandler: server.createHandler,
   ...serverHelpers,
   server,
   dynamic,

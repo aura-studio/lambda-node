@@ -430,12 +430,14 @@ describe('Client timeouts', () => {
 
 // Test 7: Runtime entrypoints
 describe('Runtime entrypoints', () => {
-  it('should expose explicit start entrypoints', () => {
-    assert.strictEqual(typeof lambda.start, 'function');
-    assert.strictEqual(typeof lambda.server.start, 'function');
-    assert.strictEqual(typeof lambda.reqresp.start, 'function');
-    assert.strictEqual(typeof lambda.sqs.start, 'function');
-    assert.strictEqual(typeof lambda.event.start, 'function');
+  it('should expose serve as the canonical entrypoint with start as alias', () => {
+    assert.strictEqual(typeof lambda.serve, 'function');
+    assert.strictEqual(typeof lambda.createHandler, 'function');
+    assert.strictEqual(lambda.start, lambda.serve);
+    assert.strictEqual(lambda.server.start, lambda.server.serve);
+    assert.strictEqual(lambda.reqresp.start, lambda.reqresp.serve);
+    assert.strictEqual(lambda.sqs.start, lambda.sqs.serve);
+    assert.strictEqual(lambda.event.start, lambda.event.serve);
   });
 
   it('should fail clearly when Runtime API is unavailable', async () => {
@@ -445,6 +447,10 @@ describe('Runtime entrypoints', () => {
     try {
       await assert.rejects(
         lambda.runtime.start(async () => null),
+        /AWS_LAMBDA_RUNTIME_API is not set/
+      );
+      await assert.rejects(
+        lambda.server.serve(lambda.server.withLambdaType('reqresp')),
         /AWS_LAMBDA_RUNTIME_API is not set/
       );
       await assert.rejects(

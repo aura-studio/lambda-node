@@ -21,23 +21,26 @@ function createHandler(reqrespOpts = [], dynamicOpts = []) {
 }
 
 /**
- * Serve preserves the package-friendly Node.js API: return a handler that can
- * be exported by the managed Lambda runtime.
+ * Serve builds the engine and runs the Lambda Runtime API loop, mirroring
+ * Go's reqresp.Serve (lambda.Start). The reqresp container image has no
+ * other Runtime API poller (no RIC, no Web Adapter), so the entrypoint
+ * process must poll itself. Never resolves under normal operation.
+ *
+ * For embedding/tests use createHandler() instead — it never touches the
+ * Runtime API.
  */
-function serve(reqrespOpts = [], dynamicOpts = []) {
-  return createHandler(reqrespOpts, dynamicOpts);
-}
-
-/**
- * Start runs the handler against the Lambda Runtime API. This mirrors Go's
- * lambda.Start path for custom runtime / CLI bootstrap usage.
- */
-async function start(reqrespOpts = [], dynamicOpts = []) {
+async function serve(reqrespOpts = [], dynamicOpts = []) {
   if (!runtime.isRuntimeAvailable()) {
     throw new Error('AWS_LAMBDA_RUNTIME_API is not set; cannot start Lambda runtime');
   }
   return runtime.start(createHandler(reqrespOpts, dynamicOpts));
 }
+
+/**
+ * @deprecated Alias of serve(), kept for callers written before serve owned
+ * the Runtime API loop.
+ */
+const start = serve;
 
 function close() {
   engine = null;
